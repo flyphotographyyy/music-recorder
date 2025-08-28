@@ -3,49 +3,51 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>J6-Synth — Full UI + Multi-Format Recorder</title>
+<title>J6-Synth – Arp + Patches + Note-Repeat + BG</title>
 <style>
-  :root{--bg:#0e0e0e;--panel:#1f1f1f;--panel2:#1a1a1a;--text:#f2f2f2;--muted:#c9c9c9;--accent:#ff6a00;--pad:#2b2b2b;--border:#3a3a3a;--danger:#ff3b30}
+  :root{
+    --bg:#0e0e0e;--panel:#1f1f1f;--panel2:#1a1a1a;--text:#f2f2f2;--muted:#c9c9c9;
+    --accent:#ff6a00;--pad:#2b2b2b;--border:#3a3a3a
+  }
   html,body{height:100%;margin:0;color:var(--text);font-family:Segoe UI,Roboto,Arial,sans-serif}
-  body{background:url("Screenshot 2025-08-28 091734.jpg") center/cover fixed no-repeat;position:relative}
+  /* Background image + overlay */
+  body{
+    background:url("Screenshot 2025-08-28 091734.jpg") no-repeat center center fixed;
+    background-size:cover; position:relative;
+  }
   body::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:0}
-  .wrap{min-height:100%;display:flex;justify-content:center;padding:18px;position:relative;z-index:1}
+  .wrap{display:flex;align-items:center;justify-content:center;min-height:100%;padding:18px;position:relative;z-index:1}
   .device{width:min(1180px,96vw);background:var(--panel);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.55);padding:18px}
-  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .display{font-family:monospace;font-size:28px;background:#0a0a0a;color:var(--danger);border-radius:10px;padding:6px 10px;min-width:110px;text-align:right}
-  .btn{background:#2b2b2b;border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--text);cursor:pointer}
-  .btn.primary{background:var(--accent);color:#111;border-color:#e45f00}
-  .btn:disabled{opacity:.55;cursor:not-allowed}
-
+  .header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .title{font-weight:700}
+  .display{font-family:monospace;font-size:28px;background:#0a0a0a;color:#ff3b30;border-radius:10px;padding:6px 10px;min-width:110px;text-align:right}
   .cols{display:grid;grid-template-columns:2fr 1.15fr;gap:14px}
-  @media (max-width:980px){.cols{grid-template-columns:1fr}}
+  @media (max-width: 980px){.cols{grid-template-columns:1fr}}
   .panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px}
 
-  /* Steps */
+  /* LEFT column */
   #chordSteps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-  .step{flex:0 0 56px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:var(--pad);cursor:pointer}
+  .step{flex:0 0 56px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:var(--pad);cursor:pointer;transition:transform .08s ease}
   .step.active{outline:2px solid var(--accent)}
-  .step.bar1{box-shadow:0 0 0 2px rgba(255,106,0,.28) inset}
+  .step.bar1{box-shadow:0 0 0 2px rgba(255,106,0,.28) inset;}
 
   .controls{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
   .control{background:#151515;border:1px solid var(--border);border-radius:10px;padding:10px}
   .control label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
   .control input[type=range], .control select, .control input[type=number]{width:100%}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-
-  /* Pads */
   .pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:10px}
-  .pad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;user-select:none}
+  .pad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
   .pad small{display:block;color:var(--muted)}
   .pad.selected{outline:2px solid var(--accent)}
 
-  /* Drum grid */
+  /* RIGHT column – Drum Machine with labels */
   .drumHead{font-weight:700;margin-bottom:8px}
   .drumRow{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin-bottom:6px}
-  .drumLabel{color:var(--muted);font-size:12px;text-align:right;padding-right:4px;user-select:none}
+  .drumLabel{color:var(--muted);font-size:12px;text-align:right;padding-right:4px;user-select:none;cursor:default}
   .drumGridRow{display:grid;grid-template-columns:repeat(16,1fr);gap:6px}
-  .drumCell{height:28px;border-radius:6px;background:#2a2a2a;border:1px solid var(--border);cursor:pointer}
-  .drumCell.beat1{border-color:#e58a3c}
+  .drumCell{height:28px;border-radius:6px;background:#2a2a2a;border:1px solid var(--border);cursor:pointer;transition:transform .08s ease}
+  .drumCell.beat1{border-color:#e58a3c;}
   .drumCell.active{background:var(--accent)}
 
   /* Timeline */
@@ -53,382 +55,799 @@
   #timeline{width:100%;height:110px;display:block;background:#141414;border:1px solid var(--border);border-radius:10px}
   .tlHelp{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
 
-  /* Transport */
-  .transport{display:grid;grid-template-columns:1.1fr 1fr 1fr .9fr .9fr .9fr;gap:12px;margin-top:14px}
-  .recbar{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
-  .recbar select{background:#202020;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px}
-  .hint{color:#bbb;font-size:12px}
+  /* Transport (+Undo) */
+  .transport{display:grid;grid-template-columns:1.1fr 1fr 1fr .9fr .9fr .9fr .9fr;gap:12px;margin-top:14px}
+  .btn{background:#2b2b2b;border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--text);cursor:pointer;text-align:center;user-select:none;transition:transform .08s ease, filter .08s ease}
+  .btn.primary{background:var(--accent);color:#111;border-color:#e45f00}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
 
-  /* Simple modal */
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5}
-  .card{width:min(920px,92vw);max-height:86vh;overflow:auto;background:#1b1b1b;border:1px solid #333;border-radius:14px;padding:14px}
-  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-  @media (max-width:700px){.grid{grid-template-columns:repeat(3,1fr)}}
+  /* Modal (общ стил) */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:20}
+  .card{background:#1b1b1b;border:1px solid var(--border);border-radius:14px;padding:14px;max-width:900px;width:92%}
+  .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:60vh;overflow:auto}
+  .grid .pad{min-width:0}
+
+  /* Patch browser */
+  .patchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:62vh;overflow:auto}
+  .patch{background:#161616;border:1px solid var(--border);border-radius:12px;padding:10px}
+  .patch h4{margin:0 0 6px 0}
+  .patch p{margin:0 0 8px 0;color:var(--muted);font-size:12px}
+  .patch .rowBtns{display:flex;gap:8px}
+  .tag{display:inline-block;background:#222;border:1px solid #333;color:#ccc;border-radius:8px;padding:2px 7px;font-size:11px;margin-right:4px}
+
+  /* Press feedback */
+  .press{transform:scale(.98);filter:brightness(1.1)}
 </style>
 </head>
 <body>
 <div class="wrap"><div class="device">
   <div class="header">
-    <div style="font-weight:700">J6-Synth</div>
+    <div class="title">J6-Synth</div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn" id="openPatches">Patches</button>
-      <div class="display" id="tempo" title="Scroll to change BPM">120.0</div>
+      <button class="btn" id="openPatches" title="Отвори Patch/Bank browser">Patches</button>
+      <div class="display" id="tempo" title="Темпо – скорост (скрол за промяна, 40–200 BPM)">120.0</div>
     </div>
   </div>
 
   <div class="cols">
-    <!-- LEFT -->
+    <!-- LEFT: Chords, Synth, Arpeggiator -->
     <div class="panel">
-      <!-- Steps -->
-      <div id="chordSteps" title="Стъпки 1–8"></div>
+      <div id="chordSteps" title="Стъпки (1–8) – задавай акорд на всяка стъпка"></div>
 
-      <!-- Main controls -->
       <div class="controls" style="margin-top:8px">
-        <div class="control"><label>Filter</label><input id="flt" type="range" min="100" max="8000" value="1500"></div>
-        <div class="control"><label>Envelope</label><input id="env" type="range" min="0" max="1" step="0.01" value="0.35"></div>
-        <div class="control"><label>Delay</label><input id="dly" type="range" min="0" max="1" step="0.01" value="0.2"></div>
-        <div class="control" style="grid-column:1/-1"><label>Reverb</label><input id="rev" type="range" min="0" max="1" step="0.01" value="0.25"></div>
+        <div class="control"><label>Filter</label><input id="flt" type="range" min="100" max="8000" value="1500" title="Изрязва високите честоти (по-ниско = по-мътен звук)"></div>
+        <div class="control"><label>Envelope</label><input id="env" type="range" min="0" max="1" step="0.01" value="0.35" title="Колко дълго звучи акорда"></div>
+        <div class="control"><label>Delay</label><input id="dly" type="range" min="0" max="1" step="0.01" value="0.2" title="Ехо ефект"></div>
+        <div class="control" style="grid-column:1/-1"><label>Reverb</label><input id="rev" type="range" min="0" max="1" step="0.01" value="0.25" title="Звучене в зала/пространство"></div>
       </div>
 
       <div class="row">
         <div class="control"><label>Style</label>
-          <select id="style"><option>Chord</option><option>Arp Up</option><option>Arp Down</option><option>Random</option><option>Strum Up</option><option>Strum Down</option></select>
+          <select id="style" style="background:#202020;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px" title="Chord=цял акорд; Arp/Strum=вариации">
+            <option>Chord</option><option>Arp Up</option><option>Arp Down</option><option>Random</option><option>Strum Up</option><option>Strum Down</option>
+          </select>
         </div>
-        <div class="control"><label>Variation</label><input id="var" type="range" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="control"><label>Variation</label><input id="var" type="range" min="0" max="1" step="0.01" value="0.5" title="Скорост/разпределение на нотите при Style"></div>
       </div>
 
-      <!-- Arp -->
+      <!-- Arpeggiator -->
       <div class="controls" style="margin-top:8px">
-        <div class="control"><label>Arp On</label><input id="arpOn" type="checkbox"></div>
-        <div class="control"><label>Arp Rate</label><select id="arpRate"><option value="4">1/4</option><option value="8" selected>1/8</option><option value="16">1/16</option><option value="32">1/32</option></select></div>
-        <div class="control"><label>Arp Direction</label><select id="arpDir"><option>Up</option><option>Down</option><option selected>UpDown</option><option>Random</option></select></div>
-        <div class="control"><label>Arp Octaves</label><input id="arpOct" type="number" min="1" max="4" value="2"></div>
-        <div class="control" style="grid-column:1/-1"><label>Arp Gate</label><input id="arpGate" type="range" min="0.15" max="0.95" step="0.01" value="0.6"></div>
+        <div class="control" title="Включва/изключва арпежиатор"><label>Arp On</label><input id="arpOn" type="checkbox"></div>
+        <div class="control" title="Колко ноти на такт"><label>Arp Rate</label>
+          <select id="arpRate">
+            <option value="4">1/4</option><option value="8" selected>1/8</option>
+            <option value="16">1/16</option><option value="32">1/32</option>
+          </select>
+        </div>
+        <div class="control" title="Посока на арпежиото"><label>Arp Direction</label>
+          <select id="arpDir"><option>Up</option><option>Down</option><option selected>UpDown</option><option>Random</option></select>
+        </div>
+        <div class="control" title="Диапазон в октави"><label>Arp Octaves</label><input id="arpOct" type="number" min="1" max="4" value="2"></div>
+        <div class="control" style="grid-column:1/-1" title="Дължина на нотата (затихване)"><label>Arp Gate</label><input id="arpGate" type="range" min="0.15" max="0.95" step="0.01" value="0.6"></div>
       </div>
 
-      <!-- Pads -->
-      <div class="pads" id="pads"></div>
+      <div class="pads" id="pads" title="Бързи акорди – клик за добавяне към избраната стъпка"></div>
 
-      <!-- Timeline -->
+      <!-- Timeline / Seek bar -->
       <div class="timelineWrap">
-        <canvas id="timeline"></canvas>
+        <canvas id="timeline" title="Клик = мести; Drag = скрубин; Двоен клик = начало"></canvas>
         <div class="tlHelp"><span>Клик за преместване на playhead</span><span>Плъзгане = скрубин | Двоен клик = Reset</span></div>
       </div>
 
       <!-- Drum volumes -->
       <div class="row" style="margin-top:10px">
-        <div class="control"><label>Kick Vol</label><input id="kickVol" type="range" min="0" max="1" step="0.01" value="1.0"></div>
-        <div class="control"><label>Snare Vol</label><input id="snareVol" type="range" min="0" max="1" step="0.01" value="0.8"></div>
-        <div class="control"><label>CHH Vol</label><input id="chhVol" type="range" min="0" max="1" step="0.01" value="0.35"></div>
-        <div class="control"><label>OHH Vol</label><input id="ohhVol" type="range" min="0" max="1" step="0.01" value="0.55"></div>
+        <div class="control"><label>Kick Vol</label><input id="kickVol" type="range" min="0" max="1" step="0.01" value="0.9" title="Сила на бас барабана"></div>
+        <div class="control"><label>Snare Vol</label><input id="snareVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Сила на малкия барабан"></div>
+        <div class="control"><label>CHH Vol</label><input id="chhVol" type="range" min="0" max="1" step="0.01" value="0.25" title="Сила на затворения hi-hat"></div>
+        <div class="control"><label>OHH Vol</label><input id="ohhVol" type="range" min="0" max="1" step="0.01" value="0.4" title="Сила на отворения hi-hat"></div>
       </div>
     </div>
 
-    <!-- RIGHT: Drum Grid -->
+    <!-- RIGHT: Drum Machine (с етикети + Note-Repeat) -->
     <div class="panel">
       <div class="drumHead">Drum Machine</div>
-      <div class="row" style="grid-template-columns:1fr 1fr;margin:0 0 8px 0">
-        <div class="control"><label>Note-Repeat</label><input id="nrOn" type="checkbox" checked></div>
-        <div class="control"><label>NR Rate</label><select id="nrRate"><option value="8">1/8</option><option value="16" selected>1/16</option><option value="32">1/32</option></select></div>
+
+      <!-- Note-Repeat mini panel -->
+      <div class="row" style="grid-template-columns:1fr 1fr; margin:0 0 8px 0">
+        <div class="control" title="Вкл/изкл Note-Repeat (ролики)">
+          <label>Note-Repeat</label>
+          <input id="nrOn" type="checkbox" checked>
+        </div>
+        <div class="control" title="Rate за Note-Repeat (докато държиш върху етикета на реда)">
+          <label>NR Rate</label>
+          <select id="nrRate"><option value="8">1/8</option><option value="16" selected>1/16</option><option value="32">1/32</option></select>
+        </div>
       </div>
-      <div id="drumGridContainer"></div>
+
+      <div id="drumGridContainer" title="Kick=бас барабан, Snare=малък барабан, CHH=затворен hi-hat, OHH=отворен hi-hat"></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:8px">
+        Клик по клетка = включи/изключи удар. <b>Note-Repeat:</b> задръж върху етикета (Kick/Snare/CHH/OHH), за да чуеш ролики по избрания NR Rate.
+      </div>
     </div>
   </div>
 
-  <!-- Transport -->
   <div class="transport">
-    <button class="btn primary" id="play">Play</button>
-    <button class="btn" id="stop">Stop</button>
-    <button class="btn" id="reset">Reset</button>
-    <button class="btn" id="rec">Rec</button>
-    <button class="btn" id="dl" disabled>Download</button>
-    <button class="btn" id="undo">Undo</button>
-  </div>
-
-  <!-- Recording format -->
-  <div class="recbar">
-    <label class="hint">Format:</label>
-    <select id="recFormat">
-      <option value="wav">WAV (16-bit PCM)</option>
-      <option value="m4a">M4A / AAC (ако е поддържано)</option>
-      <option value="webm">WebM / Opus (Chrome/Edge/Firefox)</option>
-      <option value="mp3" selected>MP3 (lamejs)</option>
-    </select>
-    <span class="hint">Safari: WAV/MP3 най-сигурно. За GarageBand – M4A или MP3.</span>
+    <button class="btn primary" id="play" title="Пусни последователността">Play</button>
+    <button class="btn" id="stop" title="Спри (позицията остава)">Stop</button>
+    <button class="btn" id="reset" title="Върни в началото">Reset</button>
+    <button class="btn" id="rec" title="Запис на звук">Rec</button>
+    <button class="btn" id="dl" disabled title="Изтегляне на записания звук">Download WAV</button>
+    <button class="btn" id="undo" title="Връща последното действие">Undo</button>
+    <button class="btn" id="panic" title="Panic (тихо/стоп)">Panic</button>
   </div>
 </div></div>
 
-<!-- Modals -->
-<div class="modal" id="modal"><div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div style="font-weight:700">Select chord for this step</div>
-    <button id="close" class="btn" style="padding:6px 10px">Close</button>
+<!-- Modal: Chord select -->
+<div class="modal" id="modal">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700">Select chord for this step</div>
+      <button id="close" class="btn" style="padding:6px 10px" title="Затвори прозореца">Close</button>
+    </div>
+    <div id="modalGrid" class="grid" title="Избери акорд за текущата стъпка"></div>
   </div>
-  <div id="modalGrid" class="grid"></div>
-</div></div>
+</div>
 
-<div class="modal" id="patchModal"><div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div style="font-weight:700">Patch / Bank Browser</div>
-    <button id="closePatches" class="btn" style="padding:6px 10px">Close</button>
+<!-- Modal: Patch browser -->
+<div class="modal" id="patchModal">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700">Patch / Bank Browser</div>
+      <button id="closePatches" class="btn" style="padding:6px 10px">Close</button>
+    </div>
+    <div id="patchGrid" class="patchGrid"></div>
   </div>
-  <div id="patchGrid" class="grid" style="grid-template-columns:repeat(3,1fr)"></div>
-</div></div>
-
-<!-- lamejs for MP3 -->
-<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+</div>
 
 <script>
-(()=>{ 'use strict';
+(()=>{
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const ctx = new AudioContext({latencyHint:'interactive'});
-
-  /* ===== Chain ===== */
   const mix = ctx.createGain(); mix.gain.value=.9; mix.connect(ctx.destination);
-  const vcf=ctx.createBiquadFilter(); vcf.type='lowpass'; vcf.frequency.value=1500;
-  const dly=ctx.createDelay(1.0); dly.delayTime.value=.25; const dGain=ctx.createGain(); dGain.gain.value=.2;
-  const con=ctx.createConvolver(); const rGain=ctx.createGain(); rGain.gain.value=.25;
-  function impulse(t=1.0,dec=3.0){const L=Math.floor(ctx.sampleRate*t),b=ctx.createBuffer(2,L,ctx.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<L;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/L,dec);}return b;}
-  con.buffer=impulse();
-  const synthIn=ctx.createGain(); synthIn.connect(vcf); synthIn.connect(dly); dly.connect(dGain); dGain.connect(vcf);
-  synthIn.connect(con); con.connect(rGain); rGain.connect(vcf); vcf.connect(mix);
 
-  /* ===== Drum bus ===== */
-  const drumBus=ctx.createGain(); drumBus.gain.value=.9; drumBus.connect(mix);
+  // ===== Synth & FX =====
+  const vcf=ctx.createBiquadFilter(); vcf.type='lowpass'; vcf.frequency.value=1500;
+  const dly=ctx.createDelay(1.0); dly.delayTime.value=.25;
+  const dGain=ctx.createGain(); dGain.gain.value=.2;
+  const con=ctx.createConvolver();
+  const rGain=ctx.createGain(); rGain.gain.value=.25;
+
+  function impulse(t=1.0,dec=3.0){
+    const len=Math.floor(ctx.sampleRate*t), buf=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(let ch=0; ch<2; ch++){
+      const data=buf.getChannelData(ch);
+      for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/len,dec);
+    }
+    return buf;
+  }
+  con.buffer=impulse();
+
+  const synthIn=ctx.createGain(); synthIn.connect(vcf);
+  synthIn.connect(dly); dly.connect(dGain); dGain.connect(vcf);
+  synthIn.connect(con); con.connect(rGain); rGain.connect(vcf);
+  vcf.connect(mix);
+
+  // ===== Drum bus =====
+  const drumBus=ctx.createGain(); drumBus.gain.value=.8; drumBus.connect(mix);
   const kickGain=ctx.createGain(), snareGain=ctx.createGain(), chhGain=ctx.createGain(), ohhGain=ctx.createGain();
-  kickGain.gain.value=1.0; snareGain.gain.value=.8; chhGain.gain.value=.35; ohhGain.gain.value=.55;
+  kickGain.gain.value=.9; snareGain.gain.value=.6; chhGain.gain.value=.25; ohhGain.gain.value=.4;
   kickGain.connect(drumBus); snareGain.connect(drumBus); chhGain.connect(drumBus); ohhGain.connect(drumBus);
 
-  /* ===== UI refs ===== */
+  // Recorder
+  // Use a MediaStreamDestination for browser supported recording formats (webm/ogg) and
+  // a manual recorder for generating a proper WAV file.  The existing
+  // MediaRecorder implementation on some platforms produces empty files when
+  // requested as WAV, so we capture the audio ourselves via a ScriptProcessorNode
+  // and encode it to a 16‑bit PCM WAV.  We still keep a MediaStreamDestination
+  // connected to the mix so that we can also record a secondary format using
+  // MediaRecorder (e.g. webm/opus) to provide additional download options.
+  const dest = ctx.createMediaStreamDestination();
+  mix.connect(dest);
+
+  // === Manual recorder setup ===
+  // Arrays to accumulate PCM samples from the mix for WAV encoding
+  let manualL = [];
+  let manualR = [];
+  // ScriptProcessorNode to tap the output of the mix.  It must be
+  // connected somewhere in the graph so that onaudioprocess events fire.
+  const recorderNode = ctx.createScriptProcessor(4096, 2, 2);
+  mix.connect(recorderNode);
+  // Connect to destination to keep the processor alive; audio is already
+  // routed to ctx.destination elsewhere, so this won't affect sound.
+  recorderNode.connect(ctx.destination);
+  recorderNode.onaudioprocess = (e) => {
+    if (!recording) return;
+    const input = e.inputBuffer;
+    // Copy input channels to new Float32Array each time
+    manualL.push(new Float32Array(input.getChannelData(0)));
+    if (input.numberOfChannels > 1) {
+      manualR.push(new Float32Array(input.getChannelData(1)));
+    } else {
+      // In case of mono input, duplicate the left channel
+      manualR.push(new Float32Array(input.getChannelData(0)));
+    }
+  };
+
+
+  /**
+   * Encode left/right channel data into a 16‑bit PCM WAV Blob.  The WAV
+   * container header is built according to the standard.  This function
+   * accepts an array of Float32Arrays (one per channel) and the sample
+   * rate, and returns a Blob with MIME type audio/wav.
+   * @param {Float32Array[]} channels Two arrays of audio samples.
+   * @param {number} sampleRate The sample rate of the audio context.
+   */
+  function encodeWAV(channels, sampleRate) {
+    const numChannels = channels.length;
+    const length = channels[0].length;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + length * blockAlign);
+    const view = new DataView(buffer);
+    // Helper to write ASCII strings to the DataView.
+    function writeString(view, offset, str) {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    }
+    let offset = 0;
+    writeString(view, offset, 'RIFF'); offset += 4;
+    view.setUint32(offset, 36 + length * blockAlign, true); offset += 4;
+    writeString(view, offset, 'WAVE'); offset += 4;
+    writeString(view, offset, 'fmt '); offset += 4;
+    view.setUint32(offset, 16, true); offset += 4; // PCM subchunk size
+    view.setUint16(offset, 1, true); offset += 2;  // audio format (1=PCM)
+    view.setUint16(offset, numChannels, true); offset += 2;
+    view.setUint32(offset, sampleRate, true); offset += 4;
+    view.setUint32(offset, sampleRate * blockAlign, true); offset += 4;
+    view.setUint16(offset, blockAlign, true); offset += 2;
+    view.setUint16(offset, bytesPerSample * 8, true); offset += 2; // bits per sample
+    writeString(view, offset, 'data'); offset += 4;
+    view.setUint32(offset, length * blockAlign, true); offset += 4;
+    // Interleave samples.  Convert from float [-1,1] to 16‑bit signed PCM.
+    let pos = offset;
+    for (let i = 0; i < length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        let sample = channels[ch][i];
+        sample = Math.max(-1, Math.min(1, sample));
+        const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(pos, intSample, true);
+        pos += 2;
+      }
+    }
+    return new Blob([view], { type: 'audio/wav' });
+  }
+
+  // Recording state and buffers for MediaRecorder based capture.  We
+  // capture into a browser‑supported container (e.g. webm/ogg) and then
+  // decode and re‑encode to WAV when the recording stops.  These
+  // variables track the active recorder, the collected data, and a
+  // simple flag indicating whether a recording session is running.
+  let mediaRecorder = null;
+  let recording = false;
+  // Array of chunks collected by MediaRecorder (webm/ogg) when available
+  let mrChunks = [];
+  // Deprecated: replaced by mrChunks in the manual/MediaRecorder recorder.
+  // let chunks = [];
+
+  // ===== UI refs =====
   const tempoEl=document.getElementById('tempo');
-  const flt=document.getElementById('flt'), env=document.getElementById('env'), dlyAmt=document.getElementById('dly'), revAmt=document.getElementById('rev');
+  const flt=document.getElementById('flt'), env=document.getElementById('env');
+  const dlyAmt=document.getElementById('dly'), revAmt=document.getElementById('rev');
   const styleSel=document.getElementById('style'), variation=document.getElementById('var');
-  const chordSteps=document.getElementById('chordSteps'), pads=document.getElementById('pads');
-  const play=document.getElementById('play'), stopB=document.getElementById('stop'), reset=document.getElementById('reset');
-  const rec=document.getElementById('rec'), dl=document.getElementById('dl'), undoBtn=document.getElementById('undo');
-  const recFormat=document.getElementById('recFormat');
+  const pads=document.getElementById('pads'), chordSteps=document.getElementById('chordSteps');
+  const play=document.getElementById('play'), stop=document.getElementById('stop'), reset=document.getElementById('reset');
+  const rec=document.getElementById('rec'), dl=document.getElementById('dl'), undoBtn=document.getElementById('undo'), panic=document.getElementById('panic');
+  const kickVol=document.getElementById('kickVol'), snareVol=document.getElementById('snareVol'), chhVol=document.getElementById('chhVol'), ohhVol=document.getElementById('ohhVol');
   const timeline=document.getElementById('timeline'), tctx=timeline.getContext('2d');
   const drumGridContainer=document.getElementById('drumGridContainer');
+  const openPatches=document.getElementById('openPatches'), patchModal=document.getElementById('patchModal');
+  const closePatches=document.getElementById('closePatches'), patchGrid=document.getElementById('patchGrid');
 
-  /* Tempo */
+  // Arpeggiator UI
+  const arpOn=document.getElementById('arpOn'), arpRate=document.getElementById('arpRate');
+  const arpDir=document.getElementById('arpDir'), arpOct=document.getElementById('arpOct'), arpGate=document.getElementById('arpGate');
+
+  // Note-Repeat UI
+  const nrOn=document.getElementById('nrOn'), nrRate=document.getElementById('nrRate');
+
+  // Button micro-feedback
+  function flash(el){ el.classList.add('press'); setTimeout(()=>el.classList.remove('press'),110); }
+  [play,stop,reset,rec,dl,undoBtn,openPatches,closePatches,panic].forEach(b=>b.addEventListener('mousedown',()=>flash(b)));
+
+  // Tempo
   let tempo=120; tempoEl.textContent=tempo.toFixed(1);
-  tempoEl.addEventListener('wheel',(e)=>{e.preventDefault(); tempo=Math.min(200,Math.max(40,tempo+(e.deltaY>0?-1:1))); tempoEl.textContent=tempo.toFixed(1); drawTimeline();},{passive:false});
+  tempoEl.addEventListener('wheel',(e)=>{e.preventDefault(); tempo=Math.min(200,Math.max(40,tempo+(e.deltaY>0?-1:1))); tempoEl.textContent=tempo.toFixed(1); drawTimeline();});
 
-  /* Undo */
-  const undoStack=[]; function pushUndo(fn){undoStack.push(fn); undoBtn.disabled=undoStack.length===0;}
-  undoBtn.onclick=()=>{const fn=undoStack.pop(); if(fn) fn(); undoBtn.disabled=undoStack.length===0;}
+  // ===== Undo =====
+  const undoStack=[]; function pushUndo(fn){ undoStack.push(fn); undoBtn.disabled = undoStack.length===0; }
+  undoBtn.onclick=()=>{ const fn=undoStack.pop(); if(fn) fn(); undoBtn.disabled = undoStack.length===0; };
 
-  /* Steps */
+  // ===== Chord steps =====
   const NUM_STEPS=8; const stepData=Array(NUM_STEPS).fill(null); let active=0;
-  for(let i=0;i<NUM_STEPS;i++){const b=document.createElement('div'); b.className='step'+(i===0?' bar1':''); b.textContent=i+1;
-    b.onclick=()=>{active=i; openChordModal(i); refreshSteps(); refreshPadsHighlight();}; chordSteps.appendChild(b);}
+  for(let i=0;i<NUM_STEPS;i++){
+    const b=document.createElement('div'); b.className='step'+(i===0?' bar1':''); b.textContent=i+1;
+    b.title = `Стъпка ${i+1} – клик за избор/смяна на акорд`;
+    b.onclick=()=>{active=i; openChordModal(i); refreshSteps(); refreshPadsHighlight();};
+    chordSteps.appendChild(b);
+  }
   function refreshSteps(){[...chordSteps.children].forEach((el,i)=>el.classList.toggle('active',i===active)); drawTimeline();}
+  const roots=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+  const quals=['maj','min','maj7','min7','dom7','dim','aug','sus2'];
+  function chordTones(r,q){const ri=roots.indexOf(r);const map={maj:[0,4,7],min:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],dom7:[0,4,7,10],dim:[0,3,6],aug:[0,4,8],sus2:[0,2,7]};return map[q].map(s=>48+((ri)%12)+s)}
+  function chordLabel(obj){ return obj ? `${obj.r} ${obj.q}` : 'none'; }
 
-  /* Chords */
-  const roots=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'], quals=['maj','min','maj7','min7','dom7','dim','aug','sus2'];
-  function chordTones(r,q){const ri=roots.indexOf(r);const map={maj:[0,4,7],min:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],dom7:[0,4,7,10],dim:[0,3,6],aug:[0,4,8],sus2:[0,2,7]};return map[q].map(s=>48+(ri%12)+s)}
-  const quickPads=[['C','maj'],['D','min'],['E','min'],['F','maj'],['G','maj'],['A','min'],['B','dim'],['C','dom7']]
-    .map(([r,q])=>{const p=document.createElement('div'); p.className='pad'; p.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
-      p.onclick=()=>{const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null; stepData[active]={r,q,tones:chordTones(r,q)};
-        pushUndo(()=>{stepData[active]=prev; refreshPadsHighlight(); drawTimeline();}); refreshPadsHighlight(); drawTimeline();};
-      pads.appendChild(p); return {el:p,r,q};});
-  function sameChord(a,b){return a&&b&&a.r===b.r&&a.q===b.q}
-  function refreshPadsHighlight(){const c=stepData[active]; quickPads.forEach(({el,r,q})=>el.classList.toggle('selected',sameChord(c,{r,q})))}
+  // Quick pads
+  const quickPads = [['C','maj'],['D','min'],['E','min'],['F','maj'],['G','maj'],['A','min'],['B','dim'],['C','dom7']].map(([r,q])=>{
+    const p=document.createElement('div'); p.className='pad'; p.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
+    p.title = "Клик – добавя акорда към избраната стъпка";
+    p.onmousedown=()=>flash(p);
+    p.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
+      stepData[active]={r,q,tones:chordTones(r,q)};
+      pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
+      refreshPadsHighlight(); drawTimeline();
+    };
+    pads.appendChild(p); return {el:p,r,q};
+  });
+  function sameChord(a,b){ return a && b && a.r===b.r && a.q===b.q; }
+  function refreshPadsHighlight(){ const current=stepData[active]; quickPads.forEach(({el,r,q})=>el.classList.toggle('selected', sameChord(current,{r,q}))); }
 
-  /* Chord modal */
+  // ===== Chord modal =====
   const modal=document.getElementById('modal'), modalGrid=document.getElementById('modalGrid'); document.getElementById('close').onclick=()=>modal.style.display='none';
-  function openChordModal(i){active=i; modal.style.display='flex'; modalGrid.innerHTML=''; const c=stepData[active];
-    roots.forEach(r=>quals.forEach(q=>{const d=document.createElement('div'); d.className='pad'; d.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
-      if(sameChord(c,{r,q})) d.classList.add('selected');
-      d.onclick=()=>{const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null; stepData[active]={r,q,tones:chordTones(r,q)};
-        pushUndo(()=>{stepData[active]=prev; refreshPadsHighlight(); drawTimeline();}); modal.style.display='none'; refreshSteps(); refreshPadsHighlight(); drawTimeline();};
-      modalGrid.appendChild(d)})); }
+  function openChordModal(i){active=i; modal.style.display='flex'; buildChordModal();}
+  function buildChordModal(){
+    modalGrid.innerHTML=''; const current=stepData[active];
+    roots.forEach(r=>quals.forEach(q=>{
+      const d=document.createElement('div'); d.className='pad'; d.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
+      d.title = `Задай ${r} ${q} на стъпка ${active+1}`;
+      if(sameChord(current,{r,q})) d.classList.add('selected');
+      d.onmousedown=()=>flash(d);
+      d.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
+        stepData[active]={r,q,tones:chordTones(r,q)};
+        pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
+        modal.style.display='none'; refreshSteps(); refreshPadsHighlight(); drawTimeline();
+      };
+      modalGrid.appendChild(d);
+    }));
+  }
 
-  /* Arp */
-  const arpOn=document.getElementById('arpOn'), arpRate=document.getElementById('arpRate'), arpDir=document.getElementById('arpDir'), arpOct=document.getElementById('arpOct'), arpGate=document.getElementById('arpGate');
-  const arp={enabled:false,rate:8,dir:'UpDown',oct:2,gate:.6,idx:0};
-  function updateArp(){arp.enabled=arpOn.checked; arp.rate=+arpRate.value; arp.dir=arpDir.value; arp.oct=Math.max(1,Math.min(4,+arpOct.value||1)); arp.gate=+arpGate.value;}
-  [arpOn,arpRate,arpDir,arpOct,arpGate].forEach(e=>e.addEventListener('input',updateArp)); updateArp();
-  function buildArpSeq(tones){let base=[...tones].sort((a,b)=>a-b); if(arp.dir==='Down') base.reverse(); else if(arp.dir==='UpDown') base=base.concat(base.slice(1,-1).reverse()); else if(arp.dir==='Random') base.sort(()=>Math.random()-.5);
-    let seq=[]; for(let o=0;o<arp.oct;o++){const sh=o*12; seq=seq.concat(base.map(n=>n+sh))} return seq.length?seq:tones;}
+  // ===== Arpeggiator =====
+  const arp = {enabled:false, rate:8, dir:'UpDown', oct:2, gate:0.6, idx:0};
+  function updateArpFromUI(){
+    arp.enabled = arpOn.checked;
+    arp.rate = +arpRate.value; // 4/8/16/32
+    arp.dir = arpDir.value;
+    arp.oct = Math.max(1,Math.min(4, +arpOct.value||1));
+    arp.gate = +arpGate.value;
+  }
+  [arpOn,arpRate,arpDir,arpOct,arpGate].forEach(el=>el.addEventListener('input',updateArpFromUI));
+  updateArpFromUI();
+
+  function buildArpSeq(tones){
+    let base=[...tones].sort((a,b)=>a-b);
+    if(arp.dir==='Down') base=[...base].sort((a,b)=>b-a);
+    else if(arp.dir==='UpDown'){ base=[...tones].sort((a,b)=>a-b); base = base.concat(base.slice(1,-1).reverse()); }
+    else if(arp.dir==='Random') base=[...base].sort(()=>Math.random()-.5);
+    let seq=[];
+    for(let o=0;o<arp.oct;o++){ const sh=o*12; seq = seq.concat(base.map(n=>n+sh)); }
+    return seq.length?seq:tones;
+  }
+
+  // synth voice
   function mtof(m){return 440*Math.pow(2,(m-69)/12)}
-  function voice(freq,dur=.48){const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq; const v=ctx.createGain(); v.gain.value=0;
-    const chorus=ctx.createOscillator(), det=ctx.createGain(); chorus.frequency.value=5; det.gain.value=3; chorus.connect(det); det.connect(o.detune);
-    o.connect(v); v.connect(synthIn); const now=ctx.currentTime; v.gain.linearRampToValueAtTime(.9,now+.01); v.gain.exponentialRampToValueAtTime(.001,now+dur); o.start(); chorus.start(); o.stop(now+dur+1);}
-  function playChordStyle(tones,stepDur){let arr=[...tones]; const st=styleSel.value;
-    if(st==='Arp Up')arr.sort((a,b)=>a-b); else if(st==='Arp Down')arr.sort((a,b)=>b-a); else if(st==='Random')arr.sort(()=>Math.random()-.5);
-    if(st.startsWith('Strum')) arr.sort((a,b)=>st==='Strum Up'?a-b:b-a);
-    const per=stepDur/Math.max(1,arr.length); arr.forEach((m,i)=>setTimeout(()=>voice(mtof(m),per*(.5+ +variation.value)), i*(st.startsWith('Strum')?per*.18:per*.05)*1000));}
-  function playArp(tones,stepDur){const seq=buildArpSeq(tones); const sub=Math.max(1,arp.rate/4);
-    for(let i=0;i<sub;i++){const note=seq[arp.idx%seq.length]; arp.idx++; const dur=(stepDur/sub)*arp.gate; setTimeout(()=>voice(mtof(note),dur), i*(stepDur/sub)*1000)}}
+  function voice(freq,dur=.48){
+    const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq;
+    const vca=ctx.createGain(); vca.gain.value=0;
+    const chorus=ctx.createOscillator(); const det=ctx.createGain(); chorus.frequency.value=5; det.gain.value=3; chorus.connect(det); det.connect(o.detune);
+    o.connect(vca); vca.connect(synthIn);
+    const now=ctx.currentTime;
+    vca.gain.linearRampToValueAtTime(.9,now+.01);
+    vca.gain.exponentialRampToValueAtTime(.001, now + dur);
+    o.start(); chorus.start(); o.stop(now+dur+1);
+  }
 
-  /* Drum grid */
-  const DRUM_STEPS=16, drums=['Kick','Snare','CHH','OHH']; const grid=drums.map(()=>Array(DRUM_STEPS).fill(false));
-  const nrOn=document.getElementById('nrOn'), nrRate=document.getElementById('nrRate'); const noteRepeat={enabled:true,rate:16,active:[false,false,false,false]};
-  nrOn.oninput=()=>noteRepeat.enabled=nrOn.checked; nrRate.oninput=()=>noteRepeat.rate=+nrRate.value;
+  function playChordStyle(tones,stepDur){
+    let arr=[...tones]; const style=styleSel.value;
+    if(style==='Arp Up')arr.sort((a,b)=>a-b); else if(style==='Arp Down')arr.sort((a,b)=>b-a); else if(style==='Random')arr.sort(()=>Math.random()-.5);
+    if(style.startsWith('Strum')){arr.sort((a,b)=>style==='Strum Up'?a-b:b-a)}
+    const per=stepDur/Math.max(1,arr.length);
+    arr.forEach((m,i)=>setTimeout(()=>voice(mtof(m),per*.9*(.5+ +variation.value)), i*(style.startsWith('Strum')?per*.18:per*.05)*1000));
+  }
+
+  function playArp(tones, stepDur){
+    const seq=buildArpSeq(tones);
+    const sub = Math.max(1, arp.rate/4); // 1/4->1, 1/8->2, ...
+    for(let i=0;i<sub;i++){
+      const note=seq[arp.idx % seq.length]; arp.idx++;
+      const dur = (stepDur/sub)*arp.gate;
+      setTimeout(()=>voice(mtof(note), dur), i*(stepDur/sub)*1000);
+    }
+  }
+
+  // ===== Drums + Grid =====
+  const DRUM_STEPS=16, drums=['Kick','Snare','CHH','OHH'];
+  const grid = drums.map(()=>Array(DRUM_STEPS).fill(false));
+
+  const noteRepeat={enabled:true, rate:16, active:[false,false,false,false]};
+  nrOn.addEventListener('input',()=>noteRepeat.enabled=nrOn.checked);
+  nrRate.addEventListener('input',()=>noteRepeat.rate=+nrRate.value);
 
   drums.forEach((name,r)=>{
     const row=document.createElement('div'); row.className='drumRow';
     const label=document.createElement('div'); label.className='drumLabel'; label.textContent=name;
-    label.onmousedown=()=>{if(noteRepeat.enabled){noteRepeat.active[r]=true; label.style.filter='brightness(1.25)';}};
-    label.onmouseup=label.onmouseleave=()=>{noteRepeat.active[r]=false; label.style.filter='';};
+    label.title = {Kick:"Бас барабан – задръж за Note-Repeat", Snare:"Малък барабан – задръж за Note-Repeat", CHH:"Затворен hi-hat – задръж", OHH:"Отворен hi-hat – задръж"}[name];
+    // Hold for Note-Repeat:
+    label.onmousedown=()=>{ if(noteRepeat.enabled){ noteRepeat.active[r]=true; label.style.filter='brightness(1.3)'; } };
+    label.onmouseup=label.onmouseleave=()=>{ noteRepeat.active[r]=false; label.style.filter=''; };
+
     const gridRow=document.createElement('div'); gridRow.className='drumGridRow';
-    for(let c=0;c<DRUM_STEPS;c++){const cell=document.createElement('div'); cell.className='drumCell'+(c===0?' beat1':''); cell.title=`${name} – Step ${c+1}`;
-      cell.onclick=()=>{const prev=grid[r][c]; grid[r][c]=!grid[r][c]; cell.classList.toggle('active',grid[r][c]); drawTimeline(); pushUndo(()=>{grid[r][c]=prev; cell.classList.toggle('active',grid[r][c]); drawTimeline();});};
-      gridRow.appendChild(cell);}
-    row.appendChild(label); row.appendChild(gridRow); drumGridContainer.appendChild(row);
+    for(let c=0;c<DRUM_STEPS;c++){
+      const cell=document.createElement('div');
+      cell.className='drumCell'+(c===0?' beat1':'');
+      cell.title = `${name} – Step ${c+1}`;
+      cell.onmousedown=()=>flash(cell);
+      cell.onclick=()=>{
+        const prev = grid[r][c];
+        grid[r][c]=!grid[r][c];
+        cell.classList.toggle('active',grid[r][c]);
+        drawTimeline();
+        pushUndo(()=>{ grid[r][c]=prev; cell.classList.toggle('active',grid[r][c]); drawTimeline(); });
+      };
+      gridRow.appendChild(cell);
+    }
+    row.appendChild(label); row.appendChild(gridRow);
+    drumGridContainer.appendChild(row);
   });
 
-  function kick(){const g=ctx.createGain(); g.gain.value=1.0; g.connect(kickGain);
-    const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(150,ctx.currentTime); o.frequency.exponentialRampToValueAtTime(60,ctx.currentTime+.12);
-    o.connect(g); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.15); o.start(); o.stop(ctx.currentTime+.2);}
-  function snare(){const L=ctx.sampleRate*.15, b=ctx.createBuffer(1,L,ctx.sampleRate), d=b.getChannelData(0); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,3);
-    const n=ctx.createBufferSource(); n.buffer=b; const g=ctx.createGain(); g.gain.value=.8; n.connect(g); g.connect(snareGain); n.start();}
-  function hat(open=false){const L=ctx.sampleRate*(open?.25:.05), b=ctx.createBuffer(1,L,ctx.sampleRate), d=b.getChannelData(0); for(let i=0;i<L;i++) d[i]=((Math.random()*2-1)>0?1:-1)*Math.pow(1-i/L,2.5);
-    const n=ctx.createBufferSource(); n.buffer=b; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000; const g=ctx.createGain(); g.gain.value=open?.55:.35; n.connect(hp); hp.connect(g); g.connect(open?ohhGain:chhGain); n.start();}
+  // Drum voices
+  function kick(){
+    const g=ctx.createGain(); g.gain.value=.9; g.connect(kickGain);
+    const o=ctx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(150,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime+.12);
+    o.connect(g); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.15);
+    o.start(); o.stop(ctx.currentTime+.2);
+  }
+  function snare(){
+    const len=ctx.sampleRate*.15, buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const data=buf.getChannelData(0); for(let i=0;i<len;i++){ data[i]=(Math.random()*2-1)*Math.pow(1-i/len,3); }
+    const n=ctx.createBufferSource(); n.buffer=buf; const g=ctx.createGain(); g.gain.value=.6; n.connect(g); g.connect(snareGain); n.start();
+  }
+  function hat(open=false){
+    const len=ctx.sampleRate*(open?.25:.05), buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<len;i++){ d[i]=((Math.random()*2-1)>0?1:-1)*Math.pow(1-i/len,2.5); }
+    const n=ctx.createBufferSource(); n.buffer=buf; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+    const g=ctx.createGain(); g.gain.value=open?.4:.25; n.connect(hp); hp.connect(g); g.connect(open? ohhGain : chhGain); n.start();
+  }
 
-  /* Transport */
+  // ===== Transport & Clock =====
   let playing=false, step=0, timer;
   function tick(){
-    const spb=60/tempo, stepDur=spb;
-    const cs=stepData[step%NUM_STEPS]; if(cs){ if(arp.enabled) playArp(cs.tones,stepDur); else playChordStyle(cs.tones,stepDur); }
+    const spb=60/tempo, stepDur=spb; // 1 beat per step
+    const cs=stepData[step%NUM_STEPS];
+    if(cs){
+      if(arp.enabled) playArp(cs.tones, stepDur);
+      else            playChordStyle(cs.tones, stepDur);
+    }
+    // Drums from grid
     grid.forEach((row,r)=>{ if(row[step%DRUM_STEPS]) ([kick,snare,hat,()=>hat(true)])[r]() });
-    if(noteRepeat.enabled){ const sub=Math.max(1, noteRepeat.rate/4); for(let i=0;i<sub;i++){ setTimeout(()=>{ if(noteRepeat.active[0]) kick(); if(noteRepeat.active[1]) snare(); if(noteRepeat.active[2]) hat(false); if(noteRepeat.active[3]) hat(true); }, i*(stepDur/sub)*1000); } }
-    drawTimeline(step); step=(step+1)%DRUM_STEPS; timer=setTimeout(tick, stepDur*1000);
-  }
-  play.onclick=async()=>{ if(playing) return; await ctx.resume(); playing=true; tick(); };
-  stopB.onclick=()=>{ playing=false; clearTimeout(timer); drawTimeline(step); };
-  reset.onclick=()=>{ step=0; drawTimeline(step); };
 
-  /* FX & vols */
+    // Note-Repeat while holding labels
+    if(noteRepeat.enabled){
+      const sub = Math.max(1, noteRepeat.rate/4);
+      for(let i=0;i<sub;i++){
+        setTimeout(()=>{
+          if(noteRepeat.active[0]) kick();
+          if(noteRepeat.active[1]) snare();
+          if(noteRepeat.active[2]) hat(false);
+          if(noteRepeat.active[3]) hat(true);
+        }, i*(stepDur/sub)*1000);
+      }
+    }
+
+    drawTimeline(step);
+    step=(step+1)%DRUM_STEPS; timer=setTimeout(tick, stepDur*1000);
+  }
+
+  play.onclick=async()=>{ if(playing) return; await ctx.resume(); playing=true; tick(); };
+  stop.onclick=()=>{ playing=false; clearTimeout(timer); drawTimeline(step); };
+  reset.onclick=()=>{ step=0; drawTimeline(step); };
+  panic.onclick = ()=>{ playing=false; clearTimeout(timer); drawTimeline(step); mix.gain.setTargetAtTime(0,ctx.currentTime,.03); setTimeout(()=>mix.gain.setTargetAtTime(.9,ctx.currentTime,.03),120); };
+
+  // FX controls
   flt.oninput=()=>vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02);
   dlyAmt.oninput=()=>dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02);
   revAmt.oninput=()=>rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02);
-  env.oninput=()=>{};
+  env.oninput=()=>{}; // reserved
   kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
   snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
   chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
   ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
 
-  /* Timeline */
-  function drawTimeline(current=step){
-    const W=timeline.clientWidth,H=timeline.clientHeight; timeline.width=W; timeline.height=H;
-    const pad=10, innerW=W-2*pad, innerH=H-2*pad, x0=pad, y0=pad; const colW=innerW/DRUM_STEPS; const rows=drums.length+1;
-    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H); tctx.strokeStyle='#333';
-    for(let c=0;c<=DRUM_STEPS;c++){const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke();}
-    for(let r=0;r<=rows;r++){const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke();}
-    for(let s=0;s<DRUM_STEPS;s++){ if(stepData[s%NUM_STEPS]){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2,y0+2,colW-4,(innerH/rows)-4); } }
-    for(let r=0;r<drums.length;r++){ for(let s=0;s<DRUM_STEPS;s++){ if(grid[r][s]){ tctx.fillStyle=['#f60','#e5e','#9cf','#fc3'][r]; const y=y0+(r+1)*(innerH/rows)+2-(innerH/rows); tctx.fillRect(x0+s*colW+3,y+2,colW-6,(innerH/rows)-6); } } }
-    tctx.fillStyle='#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
-  }
-  let dragging=false; function stepFromEvent(e){const r=timeline.getBoundingClientRect(); const x=e.clientX-r.left; const col=Math.floor((x/r.width)*DRUM_STEPS); return Math.max(0,Math.min(DRUM_STEPS-1,col));}
-  timeline.addEventListener('mousedown',(e)=>{dragging=true; step=stepFromEvent(e); drawTimeline(step);});
-  window.addEventListener('mousemove',(e)=>{if(dragging){ step=stepFromEvent(e); drawTimeline(step); }});
-  window.addEventListener('mouseup',()=>dragging=false);
-  timeline.addEventListener('dblclick',()=>{ step=0; drawTimeline(step); });
-
-  /* Patches (съкратено) */
-  const openPatches=document.getElementById('openPatches'), patchModal=document.getElementById('patchModal'), closePatches=document.getElementById('closePatches'), patchGrid=document.getElementById('patchGrid');
-  const PATCHES=[
-    {name:'Juno Pad',desc:'Мек пад',tags:['pad','warm'],params:{flt:1400,env:.7,dly:.25,rev:.45,style:'Chord',arp:{on:false}}},
-    {name:'Bright Pluck',desc:'Бърз pluck',tags:['pluck','arp'],params:{flt:3200,env:.18,dly:.15,rev:.15,style:'Chord',arp:{on:true,rate:16,dir:'Up',oct:1,gate:.55}}},
-    {name:'Runner UpDown',desc:'Арп UpDown',tags:['arp'],params:{flt:2200,env:.30,dly:.2,rev:.2,style:'Chord',arp:{on:true,rate:16,dir:'UpDown',oct:2,gate:.6}}}
-  ];
-  function applyPatch(p){ if(p.params.flt!=null){flt.value=p.params.flt; vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02)}
-    if(p.params.env!=null){env.value=p.params.env}
-    if(p.params.dly!=null){dlyAmt.value=p.params.dly; dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02)}
-    if(p.params.rev!=null){revAmt.value=p.params.rev; rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02)}
-    if(p.params.style){styleSel.value=p.params.style}
-    if(p.params.arp){arpOn.checked=!!p.params.arp.on; if(p.params.arp.rate)arpRate.value=p.params.arp.rate; if(p.params.arp.dir)arpDir.value=p.params.arp.dir; if(p.params.arp.oct)arpOct.value=p.params.arp.oct; if(p.params.arp.gate)arpGate.value=p.params.arp.gate; updateArp();}
-  }
-  function renderPatchBrowser(){ patchGrid.innerHTML=''; PATCHES.forEach(p=>{const card=document.createElement('div'); card.className='panel'; card.innerHTML=`<h4 style="margin:0 0 6px">${p.name}</h4><p style="margin:0 0 8px;color:#bbb">${p.desc}</p><div style="margin-bottom:6px">${p.tags.map(t=>`<span style="display:inline-block;background:#222;border:1px solid #333;color:#ccc;border-radius:8px;padding:2px 7px;font-size:11px;margin-right:4px">${t}</span>`).join('')}</div><div style="display:flex;gap:8px"><button class="btn">Preview</button><button class="btn primary">Load</button></div>`; const [b1,b2]=card.querySelectorAll('button'); b1.onclick=()=>{const prev={flt:+flt.value,env:+env.value,dly:+dlyAmt.value,rev:+revAmt.value,style:styleSel.value,arp:{on:arpOn.checked,rate:+arpRate.value,dir:arpDir.value,oct:+arpOct.value,gate:+arpGate.value}}; applyPatch(p); const tones=[48,52,55,59]; const spb=60/tempo; if(arpOn.checked) playArp(tones,spb); else playChordStyle(tones,spb); setTimeout(()=>applyPatch({params:prev}),1200)}; b2.onclick=()=>applyPatch(p); patchGrid.appendChild(card) }) }
-  openPatches.onclick=()=>{renderPatchBrowser(); patchModal.style.display='flex'}; closePatches.onclick=()=>patchModal.style.display='none';
-
-  /* ===== Recording (WAV/M4A/WebM/MP3) ===== */
-  const mimeSupport={m4a:'audio/mp4', webm:'audio/webm;codecs=opus'};
-  function isSupported(m){try{return window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)}catch(e){return false}}
-
-  // MediaRecorder path
-  let mediaRecorder=null, mrChunks=[];
-  function startMR(mime){ mrChunks.length=0; const dest=ctx.createMediaStreamDestination(); mix.connect(dest);
-    mediaRecorder=new MediaRecorder(dest.stream, mime?{mimeType:mime}:{});
-    mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0) mrChunks.push(e.data)};
-    mediaRecorder.onstop=()=>{const blob=new Blob(mrChunks,{type:mime||'application/octet-stream'}); provideDownload(blob, suggestName(mime));};
-    mediaRecorder.start(300);
-  }
-
-  // WAV/MP3 via ScriptProcessor tap
-  let spNode=null, tapZero=null, wavL=[], wavR=[], recActive=false, sr=ctx.sampleRate;
-  function ensureTap(){ if(spNode) return; spNode=ctx.createScriptProcessor(4096,2,2);
-    const tap=ctx.createGain(); tap.gain.value=1; mix.connect(tap); tap.connect(spNode);
-    tapZero=ctx.createGain(); tapZero.gain.value=0; spNode.connect(tapZero); tapZero.connect(ctx.destination);
-    spNode.onaudioprocess=e=>{ if(!recActive) return; wavL.push(new Float32Array(e.inputBuffer.getChannelData(0))); wavR.push(new Float32Array(e.inputBuffer.getChannelData(1))); };
-  }
-  function mergeFloat32(bs){let L=bs.reduce((a,b)=>a+b.length,0),o=new Float32Array(L),off=0; bs.forEach(b=>{o.set(b,off);off+=b.length}); return o;}
-  function interleave(L,R){const n=Math.min(L.length,R.length),o=new Float32Array(n*2); let j=0; for(let i=0;i<n;i++){o[j++]=L[i];o[j++]=R[i]} return o;}
-  function floatTo16PCMBytes(f){const buf=new ArrayBuffer(f.length*2),v=new DataView(buf); for(let i=0;i<f.length;i++){let s=Math.max(-1,Math.min(1,f[i])); v.setInt16(i*2,s<0?s*0x8000:s*0x7FFF,true)} return new Uint8Array(buf)}
-  function wavHeader(N,fs,ch,bd){const ba=ch*bd/8,br=fs*ba,buf=new ArrayBuffer(44),v=new DataView(buf); ws(v,0,'RIFF'); v.setUint32(4,36+N,true); ws(v,8,'WAVE'); ws(v,12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,ch,true); v.setUint32(24,fs,true); v.setUint32(28,br,true); v.setUint16(32,ba,true); v.setUint16(34,bd,true); ws(v,36,'data'); v.setUint32(40,N,true); return new Uint8Array(buf)}
-  function ws(v,o,s){for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i))}
-  function encodeWAV(L,R,fs){const inter=interleave(L,R); const pcm=floatTo16PCMBytes(inter); const head=wavHeader(pcm.byteLength,fs,2,16); return new Blob([head,pcm],{type:'audio/wav'})}
-  function floatToI16(f){const o=new Int16Array(f.length); for(let i=0;i<f.length;i++){let s=Math.max(-1,Math.min(1,f[i])); o[i]=s<0?s*0x8000:s*0x7FFF;} return o;}
-  function encodeMP3(L,R,fs,kbps=192){ if(!window.lamejs||!lamejs.Mp3Encoder){alert('MP3 encoder не е зареден'); return null}
-    const enc=new lamejs.Mp3Encoder(2,fs|0,kbps|0), block=1152, l=floatToI16(L), r=floatToI16(R), out=[];
-    for(let i=0;i<l.length;i+=block){const buf=enc.encodeBuffer(l.subarray(i,i+block), r.subarray(i,i+block)); if(buf.length) out.push(new Int8Array(buf));}
-    const end=enc.flush(); if(end.length) out.push(new Int8Array(end)); return new Blob(out,{type:'audio/mpeg'})}
-  function provideDownload(blob,name){const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5e3); dl.disabled=false; dl.onclick=()=>{const a2=document.createElement('a'); a2.href=url; a2.download=name; a2.click();};}
-  function suggestName(mime){const ts=new Date().toISOString().replace(/[:.]/g,'-'); if(!mime) return `take-${ts}.wav`; if(mime.includes('mp4')) return `take-${ts}.m4a`; if(mime.includes('webm')) return `take-${ts}.webm`; if(mime.includes('mpeg')) return `take-${ts}.mp3`; return `take-${ts}`}
-
-  let recMode=recFormat.value; recFormat.onchange=()=>recMode=recFormat.value;
-  rec.onclick=async()=>{await ctx.resume();
-    if(rec.dataset.state==='rec'){ // STOP
-      rec.dataset.state=''; rec.textContent='Rec';
-      if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); return; }
-      recActive=false;
-      const L=mergeFloat32(wavL), R=mergeFloat32(wavR); wavL=[]; wavR=[];
-      if(recMode==='mp3'){ const mp3=encodeMP3(L,R,sr,192); if(mp3) provideDownload(mp3,suggestName('audio/mpeg')); }
-      else { const wav=encodeWAV(L,R,sr); provideDownload(wav,suggestName('audio/wav')); }
-      return;
+  // Recorder button handler leveraging both the manual ScriptProcessorNode for
+  // high‑quality PCM capture and MediaRecorder for an additional compressed
+  // format (e.g. webm/ogg).  When recording starts, the manual buffers
+  // are cleared and a MediaRecorder is created using a supported MIME.
+  // When recording stops the PCM is flattened and encoded to WAV.  The
+  // compressed data from MediaRecorder is kept as an alternate download.
+  // Clicking the download button will open a small overlay allowing the
+  // user to choose the desired format.  This avoids automatic multi‑file
+  // downloads that some browsers block.
+  rec.onclick = async () => {
+    if (recording) {
+      // Stop recording and finalise audio
+      recording = false;
+      rec.textContent = 'Rec';
+      // Process manual buffers and enable download
+      prepareManualDownload();
+    } else {
+      // Start recording
+      await ctx.resume();
+      manualL.length = 0;
+      manualR.length = 0;
+      recording = true;
+      rec.textContent = 'Stop Rec';
     }
-    // START
-    rec.dataset.state='rec'; rec.textContent='Stop Rec'; dl.disabled=true;
-    if(recMode==='m4a' && isSupported('audio/mp4')) startMR('audio/mp4');
-    else if(recMode==='webm' && isSupported('audio/webm;codecs=opus')) startMR('audio/webm;codecs=opus');
-    else { ensureTap(); wavL=[]; wavR=[]; recActive=true; sr=ctx.sampleRate; }
   };
 
-  /* Init */
-  drawTimeline(0);
+  /**
+   * Flatten the manual PCM buffers, encode to WAV, and create download URLs
+   * for both the WAV file and the compressed recording (if available).
+   * Once complete the download button becomes active and opens a small
+   * popup with format options.
+   * @param {string} altExt Extension of the compressed format ('webm','ogg', etc.)
+   */
+  function prepareDownload(altExt = 'webm') {
+    // Flatten manual buffers into single channels
+    let total = 0;
+    for (const buf of manualL) total += buf.length;
+    const left = new Float32Array(total);
+    const right = new Float32Array(total);
+    let pos = 0;
+    for (let i = 0; i < manualL.length; i++) {
+      left.set(manualL[i], pos);
+      right.set(manualR[i], pos);
+      pos += manualL[i].length;
+    }
+    manualL.length = 0;
+    manualR.length = 0;
+    // Encode WAV
+    const wavBlob = encodeWAV([left, right], ctx.sampleRate);
+    const wavURL = URL.createObjectURL(wavBlob);
+    let altURL = null;
+    // Create Blob for the compressed recording if we have chunks and a real alt format
+    if (mrChunks && mrChunks.length && altExt !== 'wav') {
+      const type = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : '';
+      const altBlob = new Blob(mrChunks, { type });
+      altURL = URL.createObjectURL(altBlob);
+    }
+    // Enable download button
+    dl.removeAttribute('disabled');
+    dl.disabled = false;
+    // Assign click to open menu
+    dl.onclick = () => {
+      showDownloadMenu(wavURL, altURL, altExt);
+    };
+  }
 
-  /* Timeline / seek */
+  /**
+   * Finalise recording from the manual ScriptProcessorNode only.  This
+   * function flattens the accumulated PCM buffers, encodes a WAV and
+   * also creates an interleaved Float32Array to expose a raw PCM
+   * download.  The download button becomes active and opens a menu
+   * with both formats (WAV and PCM) when clicked.
+   */
+  function prepareManualDownload() {
+    // Flatten left/right buffers
+    let total = 0;
+    for (const buf of manualL) total += buf.length;
+    const left = new Float32Array(total);
+    const right = new Float32Array(total);
+    let pos = 0;
+    for (let i = 0; i < manualL.length; i++) {
+      left.set(manualL[i], pos);
+      right.set(manualR[i], pos);
+      pos += manualL[i].length;
+    }
+    // clear buffers
+    manualL.length = 0;
+    manualR.length = 0;
+    // Encode to WAV
+    const wavBlob = encodeWAV([left, right], ctx.sampleRate);
+    const wavURL = URL.createObjectURL(wavBlob);
+    // Build interleaved PCM (Float32) for alternative download
+    const pcmInterleaved = new Float32Array(total * 2);
+    for (let i = 0; i < total; i++) {
+      pcmInterleaved[2 * i] = left[i];
+      pcmInterleaved[2 * i + 1] = right[i];
+    }
+    const pcmBlob = new Blob([pcmInterleaved.buffer], { type: 'application/octet-stream' });
+    const pcmURL = URL.createObjectURL(pcmBlob);
+    // Activate download button and assign menu
+    dl.removeAttribute('disabled');
+    dl.disabled = false;
+    dl.onclick = () => {
+      showDownloadMenu(wavURL, pcmURL, 'pcm');
+    };
+  }
+
+  /**
+   * Create and display a small overlay with download options.  Two
+   * links are provided: one for the WAV file and one for the compressed
+   * recording if available.  Clicking outside the menu dismisses it.
+   * @param {string} wavURL Object URL for the WAV file
+   * @param {?string} altURL Object URL for the compressed file
+   * @param {string} altExt Extension name (e.g. 'webm' or 'ogg')
+   */
+  function showDownloadMenu(wavURL, altURL, altExt) {
+    // Remove any existing menu
+    const old = document.getElementById('downloadMenu');
+    if (old) old.remove();
+    // Build menu container
+    const menu = document.createElement('div');
+    menu.id = 'downloadMenu';
+    // Position relative to bottom right of device panel
+    menu.style.position = 'fixed';
+    menu.style.bottom = '80px';
+    menu.style.right = '40px';
+    menu.style.background = '#2b2b2b';
+    menu.style.border = '1px solid #444';
+    menu.style.borderRadius = '8px';
+    menu.style.padding = '10px';
+    menu.style.zIndex = '100';
+    // Title
+    const title = document.createElement('div');
+    title.textContent = 'Download format:';
+    title.style.color = '#ccc';
+    title.style.marginBottom = '6px';
+    menu.appendChild(title);
+    // WAV link
+    const wavLink = document.createElement('a');
+    wavLink.href = wavURL;
+    wavLink.download = 'take.wav';
+    wavLink.textContent = 'WAV';
+    wavLink.style.display = 'block';
+    wavLink.style.padding = '6px 8px';
+    wavLink.style.borderRadius = '6px';
+    wavLink.style.background = '#444';
+    wavLink.style.color = '#fff';
+    wavLink.style.marginBottom = '4px';
+    wavLink.style.textDecoration = 'none';
+    wavLink.onmousedown = () => flash(wavLink);
+    menu.appendChild(wavLink);
+    // Alt link if available
+    if (altURL) {
+      const altLink = document.createElement('a');
+      altLink.href = altURL;
+      altLink.download = `take.${altExt}`;
+      altLink.textContent = altExt.toUpperCase();
+      altLink.style.display = 'block';
+      altLink.style.padding = '6px 8px';
+      altLink.style.borderRadius = '6px';
+      altLink.style.background = '#444';
+      altLink.style.color = '#fff';
+      altLink.style.marginBottom = '4px';
+      altLink.style.textDecoration = 'none';
+      altLink.onmousedown = () => flash(altLink);
+      menu.appendChild(altLink);
+    }
+    document.body.appendChild(menu);
+    // Hide when clicking outside
+    const dismiss = (ev) => {
+      if (!menu.contains(ev.target) && ev.target !== dl) {
+        menu.remove();
+        document.removeEventListener('mousedown', dismiss);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', dismiss);
+    }, 0);
+  }
+
+  // ===== Timeline drawing & seeking (+ tooltip) =====
   function drawTimeline(current=step){
-    const W=timeline.clientWidth,H=timeline.clientHeight; timeline.width=W; timeline.height=H;
-    const pad=10, innerW=W-2*pad, innerH=H-2*pad, x0=pad, y0=pad, colW=innerW/DRUM_STEPS, rows=drums.length+1;
-    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H); tctx.strokeStyle='#333';
-    for(let c=0;c<=DRUM_STEPS;c++){const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke();}
-    for(let r=0;r<=rows;r++){const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke();}
-    for(let s=0;s<DRUM_STEPS;s++){ if(stepData[s%NUM_STEPS]){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2,y0+2,colW-4,(innerH/rows)-4); } }
+    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
+    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad;
+    const colW=innerW/DRUM_STEPS; const rows=drums.length+1; // +1 за акорди
+    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H);
+    tctx.strokeStyle='#333'; tctx.lineWidth=1;
+    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
+    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
+    // chords (top row)
+    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
+    // drums
+    for(let r=0;r<drums.length;r++){
+      for(let s=0;s<DRUM_STEPS;s++){
+        if(grid[r][s]){ tctx.fillStyle=['#f60','#e5e','#9cf','#fc3'][r];
+          const y=y0 + (r+1)*(innerH/rows) + 2 - (innerH/rows);
+          tctx.fillRect(x0+s*colW+3, y+2, colW-6, (innerH/rows)-6);
+        }
+      }
+    }
+    // playhead
+    tctx.fillStyle= '#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
+  }
+
+  // seek
+  let dragging=false;
+  function stepFromEvent(e){ const rect=timeline.getBoundingClientRect(); const x=e.clientX-rect.left; const col=Math.floor((x/rect.width)*DRUM_STEPS); return Math.max(0,Math.min(DRUM_STEPS-1,col)); }
+  timeline.addEventListener('mousedown',(e)=>{dragging=true; step=stepFromEvent(e); drawTimeline(step)});
+  window.addEventListener('mousemove',(e)=>{ if(dragging){ step=stepFromEvent(e); drawTimeline(step);} });
+  window.addEventListener('mouseup',()=>dragging=false);
+  timeline.addEventListener('dblclick',()=>{ step=0; drawTimeline(step)});
+
+  // Timeline tooltip for chords
+  timeline.addEventListener('mousemove',(e)=>{ const s=stepFromEvent(e); const cs=stepData[s%NUM_STEPS]; timeline.title=`Step ${s+1} — Chord: ${chordLabel(cs)} | Клик=мествай, Drag=скрубин, Двоен клик=Reset`; });
+
+  // ===== Patch Browser =====
+  const PATCHES=[
+    {name:'Juno Pad', tags:['pad','warm'], desc:'Мек пад с повече reverb', params:{flt:1400, env:.7, dly:.25, rev:.45, style:'Chord', arp:{on:false}}},
+    {name:'Bright Pluck', tags:['pluck','arp'], desc:'Яръкpluck; бърз decay', params:{flt:3200, env:.18, dly:.15, rev:.15, style:'Chord', arp:{on:true, rate:16, dir:'Up', oct:1, gate:.55}}},
+    {name:'Runner UpDown', tags:['arp','motion'], desc:'Up-Down арпежио, 2 октави', params:{flt:2200, env:.30, dly:.2, rev:.2, style:'Chord', arp:{on:true, rate:16, dir:'UpDown', oct:2, gate:.6}}},
+    {name:'Wide Space', tags:['pad','space'], desc:'Широк пространствен пад', params:{flt:1200, env:.8, dly:.32, rev:.55, style:'Chord', arp:{on:false}}},
+    {name:'Classic Random', tags:['arp','random'], desc:'Random арпежио', params:{flt:2500, env:.35, dly:.18, rev:.22, style:'Chord', arp:{on:true, rate:8, dir:'Random', oct:1, gate:.6}}}
+  ];
+  function applyPatch(p){
+    if(p.params.flt!=null){ flt.value=p.params.flt; vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02); }
+    if(p.params.env!=null){ env.value=p.params.env; }
+    if(p.params.dly!=null){ dlyAmt.value=p.params.dly; dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02); }
+    if(p.params.rev!=null){ revAmt.value=p.params.rev; rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02); }
+    if(p.params.style){ styleSel.value=p.params.style; }
+    if(p.params.arp){
+      arpOn.checked=!!p.params.arp.on;
+      if(p.params.arp.rate) arpRate.value=p.params.arp.rate;
+      if(p.params.arp.dir) arpDir.value=p.params.arp.dir;
+      if(p.params.arp.oct) arpOct.value=p.params.arp.oct;
+      if(p.params.arp.gate) arpGate.value=p.params.arp.gate;
+      updateArpFromUI();
+    }
+  }
+  function previewPatch(p){
+    const prev={flt:+flt.value, env:+env.value, dly:+dlyAmt.value, rev:+revAmt.value, style:styleSel.value,
+      arp:{on:arpOn.checked, rate:+arpRate.value, dir:arpDir.value, oct:+arpOct.value, gate:+arpGate.value}};
+    applyPatch(p);
+    // Cmaj7 тестов акорд
+    const tones=[48,52,55,59]; const spb=60/tempo;
+    if(arpOn.checked) playArp(tones, spb); else playChordStyle(tones, spb);
+    // връщане след 1.2s
+    setTimeout(()=>applyPatch({params:prev}),1200);
+  }
+
+  function renderPatchBrowser(){
+    patchGrid.innerHTML='';
+    PATCHES.forEach(p=>{
+      const card=document.createElement('div'); card.className='patch';
+      card.innerHTML=`<h4>${p.name}</h4><p>${p.desc}</p>
+        <div style="margin-bottom:6px">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="rowBtns"><button class="btn" title="Чуй предварително">Preview</button><button class="btn primary" title="Зареди патча">Load</button></div>`;
+      const [btnPrev,btnLoad]=card.querySelectorAll('button');
+      btnPrev.onclick=()=>previewPatch(p);
+      btnLoad.onclick=()=>applyPatch(p);
+      patchGrid.appendChild(card);
+    });
+  }
+  openPatches.onclick=()=>{ renderPatchBrowser(); patchModal.style.display='flex'; };
+  closePatches.onclick=()=>patchModal.style.display='none';
+
+  // ===== Init =====
+  kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
+  snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
+  chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
+  ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
+
+  function drawTimeline(current=0){
+    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
+    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad; const colW=innerW/DRUM_STEPS; const rows=drums.length+1;
+    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H); tctx.strokeStyle='#333'; tctx.lineWidth=1;
+    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
+    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
+    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
     for(let r=0;r<drums.length;r++){ for(let s=0;s<DRUM_STEPS;s++){ if(grid[r][s]){ tctx.fillStyle=['#f60','#e5e','#9cf','#fc3'][r]; const y=y0+(r+1)*(innerH/rows)+2-(innerH/rows); tctx.fillRect(x0+s*colW+3,y+2,colW-6,(innerH/rows)-6); } } }
     tctx.fillStyle='#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
   }
-  let dragging=false, step=0, timer; const DRUM_STEPS=16;
-  function stepFromEvent(e){const r=timeline.getBoundingClientRect(); const x=e.clientX-r.left; return Math.max(0,Math.min(DRUM_STEPS-1, Math.floor((x/r.width)*DRUM_STEPS))); }
-  timeline.addEventListener('mousedown',(e)=>{dragging=true; step=stepFromEvent(e); drawTimeline(step);});
-  window.addEventListener('mousemove',(e)=>{if(dragging){ step=stepFromEvent(e); drawTimeline(step); }});
-  window.addEventListener('mouseup',()=>dragging=false);
-  timeline.addEventListener('dblclick',()=>{ step=0; drawTimeline(step); });
 
-  /* Clock */
-  function tick(){
-    const spb=60/tempo, stepDur=spb;
-    const cs=stepData[step%NUM_STEPS]; if(cs){ if(arp.enabled) playArp(cs.tones, stepDur); else playChordStyle(cs.tones, stepDur); }
-    grid.forEach((row,r)=>{ if(row[step%DRUM_STEPS]) ([kick,snare,hat,()=>hat(true)])[r]() });
-    if(nrOn.checked){ const sub=Math.max(1, (+nrRate.value)/4); for(let i=0;i<sub;i++){ setTimeout(()=>{ if(noteRepeat.active?.[0]) kick(); if(noteRepeat.active?.[1]) snare(); if(noteRepeat.active?.[2]) hat(false); if(noteRepeat.active?.[3]) hat(true); }, i*(stepDur/sub)*1000); } }
-    drawTimeline(step); step=(step+1)%DRUM_STEPS; timer=setTimeout(tick, stepDur*1000);
-  }
-  const noteRepeat={enabled:true,rate:16,active:[false,false,false,false]};
-  document.querySelectorAll('.drumLabel').forEach((lab,idx)=>{lab.onmousedown=()=>{noteRepeat.active[idx]=true; lab.style.filter='brightness(1.25)'}; lab.onmouseup=lab.onmouseleave=()=>{noteRepeat.active[idx]=false; lab.style.filter=''};});
-  play.onclick=async()=>{ if(timer) return; await ctx.resume(); tick(); };
-  stopB.onclick=()=>{ clearTimeout(timer); timer=null; drawTimeline(step); };
+  // initial state
+  refreshPadsHighlight(); drawTimeline(0);
 })();
 </script>
 </body>
