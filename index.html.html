@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>J6-Synth – Arp + Patches + Note-Repeat + BG</title>
+<style>
+  :root{
+    --bg:#0e0e0e;--panel:#1f1f1f;--panel2:#1a1a1a;--text:#f2f2f2;--muted:#c9c9c9;
+    --accent:#ff6a00;--pad:#2b2b2b;--border:#3a3a3a
+  }
+  html,body{height:100%;margin:0;color:var(--text);font-family:Segoe UI,Roboto,Arial,sans-serif}
+  /* Background image + overlay */
+  body{
+    background:url("Screenshot 2025-08-28 091734.jpg") no-repeat center center fixed;
+    background-size:cover; position:relative;
+  }
+  body::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:0}
+  .wrap{display:flex;align-items:center;justify-content:center;min-height:100%;padding:18px;position:relative;z-index:1}
+  .device{width:min(1180px,96vw);background:var(--panel);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.55);padding:18px}
+  .header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .title{font-weight:700}
+  .display{font-family:monospace;font-size:28px;background:#0a0a0a;color:#ff3b30;border-radius:10px;padding:6px 10px;min-width:110px;text-align:right}
+  .cols{display:grid;grid-template-columns:2fr 1.15fr;gap:14px}
+  @media (max-width: 980px){.cols{grid-template-columns:1fr}}
+  .panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px}
+
+  /* LEFT column */
+  #chordSteps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .step{flex:0 0 56px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:var(--pad);cursor:pointer;transition:transform .08s ease}
+  .step.active{outline:2px solid var(--accent)}
+  .step.bar1{box-shadow:0 0 0 2px rgba(255,106,0,.28) inset;}
+
+  .controls{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .control{background:#151515;border:1px solid var(--border);border-radius:10px;padding:10px}
+  .control label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .control input[type=range], .control select, .control input[type=number]{width:100%}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:10px}
+  .pad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
+  .pad small{display:block;color:var(--muted)}
+  .pad.selected{outline:2px solid var(--accent)}
+
+  /* RIGHT column – Drum Machine with labels */
+  .drumHead{font-weight:700;margin-bottom:8px}
+  .drumRow{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin-bottom:6px}
+  .drumLabel{color:var(--muted);font-size:12px;text-align:right;padding-right:4px;user-select:none;cursor:default}
+  .drumGridRow{display:grid;grid-template-columns:repeat(16,1fr);gap:6px}
+  .drumCell{height:28px;border-radius:6px;background:#2a2a2a;border:1px solid var(--border);cursor:pointer;transition:transform .08s ease}
+  .drumCell.beat1{border-color:#e58a3c;}
+  .drumCell.active{background:var(--accent)}
+
+  /* Timeline */
+  .timelineWrap{margin-top:14px}
+  #timeline{width:100%;height:110px;display:block;background:#141414;border:1px solid var(--border);border-radius:10px}
+  .tlHelp{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
+
+  /* Transport (+Undo) */
+  .transport{display:grid;grid-template-columns:1.1fr 1fr 1fr .9fr .9fr .9fr .9fr;gap:12px;margin-top:14px}
+  .btn{background:#2b2b2b;border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--text);cursor:pointer;text-align:center;user-select:none;transition:transform .08s ease, filter .08s ease}
+  .btn.primary{background:var(--accent);color:#111;border-color:#e45f00}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+
+  /* Modal (общ стил) */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:20}
+  .card{background:#1b1b1b;border:1px solid var(--border);border-radius:14px;padding:14px;max-width:900px;width:92%}
+  .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:60vh;overflow:auto}
+  .grid .pad{min-width:0}
+
+  /* Patch browser */
+  .patchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:62vh;overflow:auto}
+  .patch{background:#161616;border:1px solid var(--border);border-radius:12px;padding:10px}
+  .patch h4{margin:0 0 6px 0}
+  .patch p{margin:0 0 8px 0;color:var(--muted);font-size:12px}
+  .patch .rowBtns{display:flex;gap:8px}
+  .tag{display:inline-block;background:#222;border:1px solid #333;color:#ccc;border-radius:8px;padding:2px 7px;font-size:11px;margin-right:4px}
+
+  /* Press feedback */
+  .press{transform:scale(.98);filter:brightness(1.1)}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="device">
+  <div class="header">
+    <div class="title">J6-Synth</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="openPatches" title="Отвори Patch/Bank browser">Patches</button>
+      <div class="display" id="tempo" title="Темпо – скорост (скрол за промяна, 40–200 BPM)">120.0</div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- LEFT: Chords, Synth, Arpeggiator -->
+    <div class="panel">
+      <div id="chordSteps" title="Стъпки (1–8) – задавай акорд на всяка стъпка"></div>
+
+      <div class="controls" style="margin-top:8px">
+        <div class="control"><label>Filter</label><input id="flt" type="range" min="100" max="8000" value="1500" title="Изрязва високите честоти (по-ниско = по-мътен звук)"></div>
+        <div class="control"><label>Envelope</label><input id="env" type="range" min="0" max="1" step="0.01" value="0.35" title="Колко дълго звучи акорда"></div>
+        <div class="control"><label>Delay</label><input id="dly" type="range" min="0" max="1" step="0.01" value="0.2" title="Ехо ефект"></div>
+        <div class="control" style="grid-column:1/-1"><label>Reverb</label><input id="rev" type="range" min="0" max="1" step="0.01" value="0.25" title="Звучене в зала/пространство"></div>
+      </div>
+
+      <div class="row">
+        <div class="control"><label>Style</label>
+          <select id="style" style="background:#202020;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px" title="Chord=цял акорд; Arp/Strum=вариации">
+            <option>Chord</option><option>Arp Up</option><option>Arp Down</option><option>Random</option><option>Strum Up</option><option>Strum Down</option>
+          </select>
+        </div>
+        <div class="control"><label>Variation</label><input id="var" type="range" min="0" max="1" step="0.01" value="0.5" title="Скорост/разпределение на нотите при Style"></div>
+      </div>
+
+      <!-- Arpeggiator -->
+      <div class="controls" style="margin-top:8px">
+        <div class="control" title="Включва/изключва арпежиатор"><label>Arp On</label><input id="arpOn" type="checkbox"></div>
+        <div class="control" title="Колко ноти на такт"><label>Arp Rate</label>
+          <select id="arpRate">
+            <option value="4">1/4</option><option value="8" selected>1/8</option>
+            <option value="16">1/16</option><option value="32">1/32</option>
+          </select>
+        </div>
+        <div class="control" title="Посока на арпежиото"><label>Arp Direction</label>
+          <select id="arpDir"><option>Up</option><option>Down</option><option selected>UpDown</option><option>Random</option></select>
+        </div>
+        <div class="control" title="Диапазон в октави"><label>Arp Octaves</label><input id="arpOct" type="number" min="1" max="4" value="2"></div>
+        <div class="control" style="grid-column:1/-1" title="Дължина на нотата (затихване)"><label>Arp Gate</label><input id="arpGate" type="range" min="0.15" max="0.95" step="0.01" value="0.6"></div>
+      </div>
+
+      <div class="pads" id="pads" title="Бързи акорди – клик за добавяне към избраната стъпка"></div>
+
+      <!-- Timeline / Seek bar -->
+      <div class="timelineWrap">
+        <canvas id="timeline" title="Клик = мести; Drag = скрубин; Двоен клик = начало"></canvas>
+        <div class="tlHelp"><span>Клик за преместване на playhead</span><span>Плъзгане = скрубин | Двоен клик = Reset</span></div>
+      </div>
+
+      <!-- Drum volumes -->
+      <div class="row" style="margin-top:10px">
+        <div class="control"><label>Kick Vol</label><input id="kickVol" type="range" min="0" max="1" step="0.01" value="0.9" title="Сила на бас барабана"></div>
+        <div class="control"><label>Snare Vol</label><input id="snareVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Сила на малкия барабан"></div>
+        <div class="control"><label>CHH Vol</label><input id="chhVol" type="range" min="0" max="1" step="0.01" value="0.25" title="Сила на затворения hi-hat"></div>
+        <div class="control"><label>OHH Vol</label><input id="ohhVol" type="range" min="0" max="1" step="0.01" value="0.4" title="Сила на отворения hi-hat"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Drum Machine (с етикети + Note-Repeat) -->
+    <div class="panel">
+      <div class="drumHead">Drum Machine</div>
+
+      <!-- Note-Repeat mini panel -->
+      <div class="row" style="grid-template-columns:1fr 1fr; margin:0 0 8px 0">
+        <div class="control" title="Вкл/изкл Note-Repeat (ролики)">
+          <label>Note-Repeat</label>
+          <input id="nrOn" type="checkbox" checked>
+        </div>
+        <div class="control" title="Rate за Note-Repeat (докато държиш върху етикета на реда)">
+          <label>NR Rate</label>
+          <select id="nrRate"><option value="8">1/8</option><option value="16" selected>1/16</option><option value="32">1/32</option></select>
+        </div>
+      </div>
+
+      <div id="drumGridContainer" title="Kick=бас барабан, Snare=малък барабан, CHH=затворен hi-hat, OHH=отворен hi-hat"></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:8px">
+        Клик по клетка = включи/изключи удар. <b>Note-Repeat:</b> задръж върху етикета (Kick/Snare/CHH/OHH), за да чуеш ролики по избрания NR Rate.
+      </div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="btn primary" id="play" title="Пусни последователността">Play</button>
+    <button class="btn" id="stop" title="Спри (позицията остава)">Stop</button>
+    <button class="btn" id="reset" title="Върни в началото">Reset</button>
+    <button class="btn" id="rec" title="Запис на звук">Rec</button>
+    <button class="btn" id="dl" disabled title="Изтегляне на записания звук">Download WAV</button>
+    <button class="btn" id="undo" title="Връща последното действие">Undo</button>
+    <button class="btn" id="panic" title="Panic (тихо/стоп)">Panic</button>
+  </div>
+</div></div>
+
+<!-- Modal: Chord select -->
+<div class="modal" id="modal">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700">Select chord for this step</div>
+      <button id="close" class="btn" style="padding:6px 10px" title="Затвори прозореца">Close</button>
+    </div>
+    <div id="modalGrid" class="grid" title="Избери акорд за текущата стъпка"></div>
+  </div>
+</div>
+
+<!-- Modal: Patch browser -->
+<div class="modal" id="patchModal">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700">Patch / Bank Browser</div>
+      <button id="closePatches" class="btn" style="padding:6px 10px">Close</button>
+    </div>
+    <div id="patchGrid" class="patchGrid"></div>
+  </div>
+</div>
+
+<script>
+(()=>{
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioContext({latencyHint:'interactive'});
+  const mix = ctx.createGain(); mix.gain.value=.9; mix.connect(ctx.destination);
+
+  // ===== Synth & FX =====
+  const vcf=ctx.createBiquadFilter(); vcf.type='lowpass'; vcf.frequency.value=1500;
+  const dly=ctx.createDelay(1.0); dly.delayTime.value=.25;
+  const dGain=ctx.createGain(); dGain.gain.value=.2;
+  const con=ctx.createConvolver();
+  const rGain=ctx.createGain(); rGain.gain.value=.25;
+
+  function impulse(t=1.0,dec=3.0){
+    const len=Math.floor(ctx.sampleRate*t), buf=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(let ch=0; ch<2; ch++){
+      const data=buf.getChannelData(ch);
+      for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/len,dec);
+    }
+    return buf;
+  }
+  con.buffer=impulse();
+
+  const synthIn=ctx.createGain(); synthIn.connect(vcf);
+  synthIn.connect(dly); dly.connect(dGain); dGain.connect(vcf);
+  synthIn.connect(con); con.connect(rGain); rGain.connect(vcf);
+  vcf.connect(mix);
+
+  // ===== Drum bus =====
+  const drumBus=ctx.createGain(); drumBus.gain.value=.8; drumBus.connect(mix);
+  const kickGain=ctx.createGain(), snareGain=ctx.createGain(), chhGain=ctx.createGain(), ohhGain=ctx.createGain();
+  kickGain.gain.value=.9; snareGain.gain.value=.6; chhGain.gain.value=.25; ohhGain.gain.value=.4;
+  kickGain.connect(drumBus); snareGain.connect(drumBus); chhGain.connect(drumBus); ohhGain.connect(drumBus);
+
+  // Recorder
+  const dest=ctx.createMediaStreamDestination(); mix.connect(dest);
+  let mediaRecorder, chunks=[];
+
+  // ===== UI refs =====
+  const tempoEl=document.getElementById('tempo');
+  const flt=document.getElementById('flt'), env=document.getElementById('env');
+  const dlyAmt=document.getElementById('dly'), revAmt=document.getElementById('rev');
+  const styleSel=document.getElementById('style'), variation=document.getElementById('var');
+  const pads=document.getElementById('pads'), chordSteps=document.getElementById('chordSteps');
+  const play=document.getElementById('play'), stop=document.getElementById('stop'), reset=document.getElementById('reset');
+  const rec=document.getElementById('rec'), dl=document.getElementById('dl'), undoBtn=document.getElementById('undo'), panic=document.getElementById('panic');
+  const kickVol=document.getElementById('kickVol'), snareVol=document.getElementById('snareVol'), chhVol=document.getElementById('chhVol'), ohhVol=document.getElementById('ohhVol');
+  const timeline=document.getElementById('timeline'), tctx=timeline.getContext('2d');
+  const drumGridContainer=document.getElementById('drumGridContainer');
+  const openPatches=document.getElementById('openPatches'), patchModal=document.getElementById('patchModal');
+  const closePatches=document.getElementById('closePatches'), patchGrid=document.getElementById('patchGrid');
+
+  // Arpeggiator UI
+  const arpOn=document.getElementById('arpOn'), arpRate=document.getElementById('arpRate');
+  const arpDir=document.getElementById('arpDir'), arpOct=document.getElementById('arpOct'), arpGate=document.getElementById('arpGate');
+
+  // Note-Repeat UI
+  const nrOn=document.getElementById('nrOn'), nrRate=document.getElementById('nrRate');
+
+  // Button micro-feedback
+  function flash(el){ el.classList.add('press'); setTimeout(()=>el.classList.remove('press'),110); }
+  [play,stop,reset,rec,dl,undoBtn,openPatches,closePatches,panic].forEach(b=>b.addEventListener('mousedown',()=>flash(b)));
+
+  // Tempo
+  let tempo=120; tempoEl.textContent=tempo.toFixed(1);
+  tempoEl.addEventListener('wheel',(e)=>{e.preventDefault(); tempo=Math.min(200,Math.max(40,tempo+(e.deltaY>0?-1:1))); tempoEl.textContent=tempo.toFixed(1); drawTimeline();});
+
+  // ===== Undo =====
+  const undoStack=[]; function pushUndo(fn){ undoStack.push(fn); undoBtn.disabled = undoStack.length===0; }
+  undoBtn.onclick=()=>{ const fn=undoStack.pop(); if(fn) fn(); undoBtn.disabled = undoStack.length===0; };
+
+  // ===== Chord steps =====
+  const NUM_STEPS=8; const stepData=Array(NUM_STEPS).fill(null); let active=0;
+  for(let i=0;i<NUM_STEPS;i++){
+    const b=document.createElement('div'); b.className='step'+(i===0?' bar1':''); b.textContent=i+1;
+    b.title = `Стъпка ${i+1} – клик за избор/смяна на акорд`;
+    b.onclick=()=>{active=i; openChordModal(i); refreshSteps(); refreshPadsHighlight();};
+    chordSteps.appendChild(b);
+  }
+  function refreshSteps(){[...chordSteps.children].forEach((el,i)=>el.classList.toggle('active',i===active)); drawTimeline();}
+  const roots=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+  const quals=['maj','min','maj7','min7','dom7','dim','aug','sus2'];
+  function chordTones(r,q){const ri=roots.indexOf(r);const map={maj:[0,4,7],min:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],dom7:[0,4,7,10],dim:[0,3,6],aug:[0,4,8],sus2:[0,2,7]};return map[q].map(s=>48+((ri)%12)+s)}
+  function chordLabel(obj){ return obj ? `${obj.r} ${obj.q}` : 'none'; }
+
+  // Quick pads
+  const quickPads = [['C','maj'],['D','min'],['E','min'],['F','maj'],['G','maj'],['A','min'],['B','dim'],['C','dom7']].map(([r,q])=>{
+    const p=document.createElement('div'); p.className='pad'; p.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
+    p.title = "Клик – добавя акорда към избраната стъпка";
+    p.onmousedown=()=>flash(p);
+    p.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
+      stepData[active]={r,q,tones:chordTones(r,q)};
+      pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
+      refreshPadsHighlight(); drawTimeline();
+    };
+    pads.appendChild(p); return {el:p,r,q};
+  });
+  function sameChord(a,b){ return a && b && a.r===b.r && a.q===b.q; }
+  function refreshPadsHighlight(){ const current=stepData[active]; quickPads.forEach(({el,r,q})=>el.classList.toggle('selected', sameChord(current,{r,q}))); }
+
+  // ===== Chord modal =====
+  const modal=document.getElementById('modal'), modalGrid=document.getElementById('modalGrid'); document.getElementById('close').onclick=()=>modal.style.display='none';
+  function openChordModal(i){active=i; modal.style.display='flex'; buildChordModal();}
+  function buildChordModal(){
+    modalGrid.innerHTML=''; const current=stepData[active];
+    roots.forEach(r=>quals.forEach(q=>{
+      const d=document.createElement('div'); d.className='pad'; d.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
+      d.title = `Задай ${r} ${q} на стъпка ${active+1}`;
+      if(sameChord(current,{r,q})) d.classList.add('selected');
+      d.onmousedown=()=>flash(d);
+      d.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
+        stepData[active]={r,q,tones:chordTones(r,q)};
+        pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
+        modal.style.display='none'; refreshSteps(); refreshPadsHighlight(); drawTimeline();
+      };
+      modalGrid.appendChild(d);
+    }));
+  }
+
+  // ===== Arpeggiator =====
+  const arp = {enabled:false, rate:8, dir:'UpDown', oct:2, gate:0.6, idx:0};
+  function updateArpFromUI(){
+    arp.enabled = arpOn.checked;
+    arp.rate = +arpRate.value; // 4/8/16/32
+    arp.dir = arpDir.value;
+    arp.oct = Math.max(1,Math.min(4, +arpOct.value||1));
+    arp.gate = +arpGate.value;
+  }
+  [arpOn,arpRate,arpDir,arpOct,arpGate].forEach(el=>el.addEventListener('input',updateArpFromUI));
+  updateArpFromUI();
+
+  function buildArpSeq(tones){
+    let base=[...tones].sort((a,b)=>a-b);
+    if(arp.dir==='Down') base=[...base].sort((a,b)=>b-a);
+    else if(arp.dir==='UpDown'){ base=[...tones].sort((a,b)=>a-b); base = base.concat(base.slice(1,-1).reverse()); }
+    else if(arp.dir==='Random') base=[...base].sort(()=>Math.random()-.5);
+    let seq=[];
+    for(let o=0;o<arp.oct;o++){ const sh=o*12; seq = seq.concat(base.map(n=>n+sh)); }
+    return seq.length?seq:tones;
+  }
+
+  // synth voice
+  function mtof(m){return 440*Math.pow(2,(m-69)/12)}
+  function voice(freq,dur=.48){
+    const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq;
+    const vca=ctx.createGain(); vca.gain.value=0;
+    const chorus=ctx.createOscillator(); const det=ctx.createGain(); chorus.frequency.value=5; det.gain.value=3; chorus.connect(det); det.connect(o.detune);
+    o.connect(vca); vca.connect(synthIn);
+    const now=ctx.currentTime;
+    vca.gain.linearRampToValueAtTime(.9,now+.01);
+    vca.gain.exponentialRampToValueAtTime(.001, now + dur);
+    o.start(); chorus.start(); o.stop(now+dur+1);
+  }
+
+  function playChordStyle(tones,stepDur){
+    let arr=[...tones]; const style=styleSel.value;
+    if(style==='Arp Up')arr.sort((a,b)=>a-b); else if(style==='Arp Down')arr.sort((a,b)=>b-a); else if(style==='Random')arr.sort(()=>Math.random()-.5);
+    if(style.startsWith('Strum')){arr.sort((a,b)=>style==='Strum Up'?a-b:b-a)}
+    const per=stepDur/Math.max(1,arr.length);
+    arr.forEach((m,i)=>setTimeout(()=>voice(mtof(m),per*.9*(.5+ +variation.value)), i*(style.startsWith('Strum')?per*.18:per*.05)*1000));
+  }
+
+  function playArp(tones, stepDur){
+    const seq=buildArpSeq(tones);
+    const sub = Math.max(1, arp.rate/4); // 1/4->1, 1/8->2, ...
+    for(let i=0;i<sub;i++){
+      const note=seq[arp.idx % seq.length]; arp.idx++;
+      const dur = (stepDur/sub)*arp.gate;
+      setTimeout(()=>voice(mtof(note), dur), i*(stepDur/sub)*1000);
+    }
+  }
+
+  // ===== Drums + Grid =====
+  const DRUM_STEPS=16, drums=['Kick','Snare','CHH','OHH'];
+  const grid = drums.map(()=>Array(DRUM_STEPS).fill(false));
+
+  const noteRepeat={enabled:true, rate:16, active:[false,false,false,false]};
+  nrOn.addEventListener('input',()=>noteRepeat.enabled=nrOn.checked);
+  nrRate.addEventListener('input',()=>noteRepeat.rate=+nrRate.value);
+
+  drums.forEach((name,r)=>{
+    const row=document.createElement('div'); row.className='drumRow';
+    const label=document.createElement('div'); label.className='drumLabel'; label.textContent=name;
+    label.title = {Kick:"Бас барабан – задръж за Note-Repeat", Snare:"Малък барабан – задръж за Note-Repeat", CHH:"Затворен hi-hat – задръж", OHH:"Отворен hi-hat – задръж"}[name];
+    // Hold for Note-Repeat:
+    label.onmousedown=()=>{ if(noteRepeat.enabled){ noteRepeat.active[r]=true; label.style.filter='brightness(1.3)'; } };
+    label.onmouseup=label.onmouseleave=()=>{ noteRepeat.active[r]=false; label.style.filter=''; };
+
+    const gridRow=document.createElement('div'); gridRow.className='drumGridRow';
+    for(let c=0;c<DRUM_STEPS;c++){
+      const cell=document.createElement('div');
+      cell.className='drumCell'+(c===0?' beat1':'');
+      cell.title = `${name} – Step ${c+1}`;
+      cell.onmousedown=()=>flash(cell);
+      cell.onclick=()=>{
+        const prev = grid[r][c];
+        grid[r][c]=!grid[r][c];
+        cell.classList.toggle('active',grid[r][c]);
+        drawTimeline();
+        pushUndo(()=>{ grid[r][c]=prev; cell.classList.toggle('active',grid[r][c]); drawTimeline(); });
+      };
+      gridRow.appendChild(cell);
+    }
+    row.appendChild(label); row.appendChild(gridRow);
+    drumGridContainer.appendChild(row);
+  });
+
+  // Drum voices
+  function kick(){
+    const g=ctx.createGain(); g.gain.value=.9; g.connect(kickGain);
+    const o=ctx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(150,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime+.12);
+    o.connect(g); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.15);
+    o.start(); o.stop(ctx.currentTime+.2);
+  }
+  function snare(){
+    const len=ctx.sampleRate*.15, buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const data=buf.getChannelData(0); for(let i=0;i<len;i++){ data[i]=(Math.random()*2-1)*Math.pow(1-i/len,3); }
+    const n=ctx.createBufferSource(); n.buffer=buf; const g=ctx.createGain(); g.gain.value=.6; n.connect(g); g.connect(snareGain); n.start();
+  }
+  function hat(open=false){
+    const len=ctx.sampleRate*(open?.25:.05), buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<len;i++){ d[i]=((Math.random()*2-1)>0?1:-1)*Math.pow(1-i/len,2.5); }
+    const n=ctx.createBufferSource(); n.buffer=buf; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+    const g=ctx.createGain(); g.gain.value=open?.4:.25; n.connect(hp); hp.connect(g); g.connect(open? ohhGain : chhGain); n.start();
+  }
+
+  // ===== Transport & Clock =====
+  let playing=false, step=0, timer;
+  function tick(){
+    const spb=60/tempo, stepDur=spb; // 1 beat per step
+    const cs=stepData[step%NUM_STEPS];
+    if(cs){
+      if(arp.enabled) playArp(cs.tones, stepDur);
+      else            playChordStyle(cs.tones, stepDur);
+    }
+    // Drums from grid
+    grid.forEach((row,r)=>{ if(row[step%DRUM_STEPS]) ([kick,snare,hat,()=>hat(true)])[r]() });
+
+    // Note-Repeat while holding labels
+    if(noteRepeat.enabled){
+      const sub = Math.max(1, noteRepeat.rate/4);
+      for(let i=0;i<sub;i++){
+        setTimeout(()=>{
+          if(noteRepeat.active[0]) kick();
+          if(noteRepeat.active[1]) snare();
+          if(noteRepeat.active[2]) hat(false);
+          if(noteRepeat.active[3]) hat(true);
+        }, i*(stepDur/sub)*1000);
+      }
+    }
+
+    drawTimeline(step);
+    step=(step+1)%DRUM_STEPS; timer=setTimeout(tick, stepDur*1000);
+  }
+
+  play.onclick=async()=>{ if(playing) return; await ctx.resume(); playing=true; tick(); };
+  stop.onclick=()=>{ playing=false; clearTimeout(timer); drawTimeline(step); };
+  reset.onclick=()=>{ step=0; drawTimeline(step); };
+  panic.onclick = ()=>{ playing=false; clearTimeout(timer); drawTimeline(step); mix.gain.setTargetAtTime(0,ctx.currentTime,.03); setTimeout(()=>mix.gain.setTargetAtTime(.9,ctx.currentTime,.03),120); };
+
+  // FX controls
+  flt.oninput=()=>vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02);
+  dlyAmt.oninput=()=>dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02);
+  revAmt.oninput=()=>rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02);
+  env.oninput=()=>{}; // reserved
+  kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
+  snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
+  chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
+  ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
+
+  // Recorder
+  rec.onclick=async()=>{
+    if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); rec.textContent='Rec'; return; }
+    await ctx.resume(); chunks=[]; mediaRecorder=new MediaRecorder(dest.stream);
+    mediaRecorder.ondataavailable=e=>chunks.push(e.data);
+    mediaRecorder.onstop=()=>{ const blob=new Blob(chunks,{type:'audio/wav'}); const url=URL.createObjectURL(blob); dl.disabled=false; dl.onclick=()=>{const a=document.createElement('a'); a.href=url; a.download='take.wav'; a.click();}; };
+    mediaRecorder.start(); rec.textContent='Stop Rec';
+  };
+
+  // ===== Timeline drawing & seeking (+ tooltip) =====
+  function drawTimeline(current=step){
+    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
+    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad;
+    const colW=innerW/DRUM_STEPS; const rows=drums.length+1; // +1 за акорди
+    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H);
+    tctx.strokeStyle='#333'; tctx.lineWidth=1;
+    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
+    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
+    // chords (top row)
+    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
+    // drums
+    for(let r=0;r<drums.length;r++){
+      for(let s=0;s<DRUM_STEPS;s++){
+        if(grid[r][s]){ tctx.fillStyle=['#f60','#e5e','#9cf','#fc3'][r];
+          const y=y0 + (r+1)*(innerH/rows) + 2 - (innerH/rows);
+          tctx.fillRect(x0+s*colW+3, y+2, colW-6, (innerH/rows)-6);
+        }
+      }
+    }
+    // playhead
+    tctx.fillStyle= '#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
+  }
+
+  // seek
+  let dragging=false;
+  function stepFromEvent(e){ const rect=timeline.getBoundingClientRect(); const x=e.clientX-rect.left; const col=Math.floor((x/rect.width)*DRUM_STEPS); return Math.max(0,Math.min(DRUM_STEPS-1,col)); }
+  timeline.addEventListener('mousedown',(e)=>{dragging=true; step=stepFromEvent(e); drawTimeline(step)});
+  window.addEventListener('mousemove',(e)=>{ if(dragging){ step=stepFromEvent(e); drawTimeline(step);} });
+  window.addEventListener('mouseup',()=>dragging=false);
+  timeline.addEventListener('dblclick',()=>{ step=0; drawTimeline(step)});
+
+  // Timeline tooltip for chords
+  timeline.addEventListener('mousemove',(e)=>{ const s=stepFromEvent(e); const cs=stepData[s%NUM_STEPS]; timeline.title=`Step ${s+1} — Chord: ${chordLabel(cs)} | Клик=мествай, Drag=скрубин, Двоен клик=Reset`; });
+
+  // ===== Patch Browser =====
+  const PATCHES=[
+    {name:'Juno Pad', tags:['pad','warm'], desc:'Мек пад с повече reverb', params:{flt:1400, env:.7, dly:.25, rev:.45, style:'Chord', arp:{on:false}}},
+    {name:'Bright Pluck', tags:['pluck','arp'], desc:'Яръкpluck; бърз decay', params:{flt:3200, env:.18, dly:.15, rev:.15, style:'Chord', arp:{on:true, rate:16, dir:'Up', oct:1, gate:.55}}},
+    {name:'Runner UpDown', tags:['arp','motion'], desc:'Up-Down арпежио, 2 октави', params:{flt:2200, env:.30, dly:.2, rev:.2, style:'Chord', arp:{on:true, rate:16, dir:'UpDown', oct:2, gate:.6}}},
+    {name:'Wide Space', tags:['pad','space'], desc:'Широк пространствен пад', params:{flt:1200, env:.8, dly:.32, rev:.55, style:'Chord', arp:{on:false}}},
+    {name:'Classic Random', tags:['arp','random'], desc:'Random арпежио', params:{flt:2500, env:.35, dly:.18, rev:.22, style:'Chord', arp:{on:true, rate:8, dir:'Random', oct:1, gate:.6}}}
+  ];
+  function applyPatch(p){
+    if(p.params.flt!=null){ flt.value=p.params.flt; vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02); }
+    if(p.params.env!=null){ env.value=p.params.env; }
+    if(p.params.dly!=null){ dlyAmt.value=p.params.dly; dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02); }
+    if(p.params.rev!=null){ revAmt.value=p.params.rev; rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02); }
+    if(p.params.style){ styleSel.value=p.params.style; }
+    if(p.params.arp){
+      arpOn.checked=!!p.params.arp.on;
+      if(p.params.arp.rate) arpRate.value=p.params.arp.rate;
+      if(p.params.arp.dir) arpDir.value=p.params.arp.dir;
+      if(p.params.arp.oct) arpOct.value=p.params.arp.oct;
+      if(p.params.arp.gate) arpGate.value=p.params.arp.gate;
+      updateArpFromUI();
+    }
+  }
+  function previewPatch(p){
+    const prev={flt:+flt.value, env:+env.value, dly:+dlyAmt.value, rev:+revAmt.value, style:styleSel.value,
+      arp:{on:arpOn.checked, rate:+arpRate.value, dir:arpDir.value, oct:+arpOct.value, gate:+arpGate.value}};
+    applyPatch(p);
+    // Cmaj7 тестов акорд
+    const tones=[48,52,55,59]; const spb=60/tempo;
+    if(arpOn.checked) playArp(tones, spb); else playChordStyle(tones, spb);
+    // връщане след 1.2s
+    setTimeout(()=>applyPatch({params:prev}),1200);
+  }
+
+  function renderPatchBrowser(){
+    patchGrid.innerHTML='';
+    PATCHES.forEach(p=>{
+      const card=document.createElement('div'); card.className='patch';
+      card.innerHTML=`<h4>${p.name}</h4><p>${p.desc}</p>
+        <div style="margin-bottom:6px">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="rowBtns"><button class="btn" title="Чуй предварително">Preview</button><button class="btn primary" title="Зареди патча">Load</button></div>`;
+      const [btnPrev,btnLoad]=card.querySelectorAll('button');
+      btnPrev.onclick=()=>previewPatch(p);
+      btnLoad.onclick=()=>applyPatch(p);
+      patchGrid.appendChild(card);
+    });
+  }
+  openPatches.onclick=()=>{ renderPatchBrowser(); patchModal.style.display='flex'; };
+  closePatches.onclick=()=>patchModal.style.display='none';
+
+  // ===== Init =====
+  kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
+  snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
+  chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
+  ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
+
+  function drawTimeline(current=0){
+    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
+    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad; const colW=innerW/DRUM_STEPS; const rows=drums.length+1;
+    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H); tctx.strokeStyle='#333'; tctx.lineWidth=1;
+    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
+    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
+    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
+    for(let r=0;r<drums.length;r++){ for(let s=0;s<DRUM_STEPS;s++){ if(grid[r][s]){ tctx.fillStyle=['#f60','#e5e','#9cf','#fc3'][r]; const y=y0+(r+1)*(innerH/rows)+2-(innerH/rows); tctx.fillRect(x0+s*colW+3,y+2,colW-6,(innerH/rows)-6); } } }
+    tctx.fillStyle='#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
+  }
+
+  // initial state
+  refreshPadsHighlight(); drawTimeline(0);
+})();
+</script>
+</body>
+</html>
