@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>J6-Synth – Arp + Patches + Note-Repeat + BG</title>
 <style>
+
+/* --- Custom edits: hide bottom performance timeline and its zoom UI; keep everything else --- */
+#performanceTracks{display:none !important;}
+#perfZoom{display:none !important;}
+.arrangementTracks + div:has(#perfZoom){display:none !important;}
+
+/* ---- KEEP bottom performance timeline, hide only top arrangement ---- */
+#arrangementTracks{display:none !important;}
+#arrPlayhead{display:none !important;}
+/* Zoom will scale performance timeline step width */
+:root{ --perfStepWidth: 20px; }
+
   :root{
     --bg:#0e0e0e;--panel:#1f1f1f;--panel2:#1a1a1a;--text:#f2f2f2;--muted:#c9c9c9;
     --accent:#ff6a00;--pad:#2b2b2b;--border:#3a3a3a
@@ -15,9 +27,9 @@
     background:url("Screenshot 2025-08-28 091734.jpg") no-repeat center center fixed;
     background-size:cover; position:relative;
   }
-  body::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,0.15);z-index:0}
+  body::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:0}
   .wrap{display:flex;align-items:center;justify-content:center;min-height:100%;padding:18px;position:relative;z-index:1}
-  .device{width:min(1180px,96vw);background:var(--panel);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.55);padding:18px}
+.device{width:min(1180px,96vw);background:#000; border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.55);padding:18px;position:relative}
   .header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px}
   .title{font-weight:700}
   .display{font-family:monospace;font-size:28px;background:#0a0a0a;color:#ff3b30;border-radius:10px;padding:6px 10px;min-width:110px;text-align:right}
@@ -80,17 +92,16 @@
   /* Press feedback */
   .press{transform:scale(.98);filter:brightness(1.1)}
 
-.device,
-.panel,
-.control,
-.pad,
-.btn,
-.drumCell,
-#timeline {
-  background:transparent !important;
-  border:1px solid var(--border);
-}
-
+  /* Arrangement (multi‑track arranger) */
+  .arrangementTracks{margin-top:20px;background:#121212;border:1px solid var(--border);border-radius:10px;overflow-x:auto;position:relative;padding-bottom:16px}
+  .arrTrack{display:flex;border-bottom:1px solid #2a2a2a;min-height:50px;position:relative}
+  .arrTrack:last-child{border-bottom:none}
+  .arrTrackLabel{width:80px;padding:6px 4px;display:flex;align-items:center;justify-content:flex-end;color:var(--muted);font-size:12px;text-transform:uppercase;user-select:none;padding-right:8px}
+  .arrTrackRow{position:relative;flex:1}
+  .arrClip{position:absolute;top:8px;height:34px;border-radius:6px;border:1px solid var(--border);color:#111;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:grab}
+  .arrClip:active{cursor:grabbing}
+  .arrAddClip{position:absolute;top:8px;height:34px;width:40px;right:0;padding:0;border-radius:6px;background:var(--accent);color:#111;border:none;cursor:pointer;font-size:16px;line-height:34px;text-align:center}
+  .arrPlayhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);pointer-events:none;z-index:10}
 </style>
 </head>
 <body>
@@ -107,6 +118,13 @@
     <!-- LEFT: Chords, Synth, Arpeggiator -->
     <div class="panel">
       <div id="chordSteps" title="Стъпки (1–8) – задавай акорд на всяка стъпка"></div>
+      <!-- Button to add more chord steps dynamically -->
+      <button id="addStep" class="btn" style="margin-top:6px;margin-bottom:6px;padding:6px 12px;font-size:12px;background:var(--accent);color:#111;border:none" title="Добави нова стъпка за акорд">+ Step</button>
+      <!-- Selector for choosing the current chord step when direct clicking is not available -->
+      <div class="control" style="margin-bottom:6px;width:120px">
+        <label>Текуща стъпка</label>
+        <input id="stepSelect" type="number" min="1" max="32" value="1" style="width:100%" title="Избери стъпка за редакция">
+      </div>
 
       <div class="controls" style="margin-top:8px">
         <div class="control"><label>Filter</label><input id="flt" type="range" min="100" max="8000" value="1500" title="Изрязва високите честоти (по-ниско = по-мътен звук)"></div>
@@ -219,6 +237,13 @@
     <button class="btn" id="exportStems" title="Export stems (separate WAVs)">Export</button>
     <input type="file" id="patchFile" accept=".json" style="display:none" />
   </div>
+
+  <!-- Arrangement view: multi‑track arranger -->
+  <div id="arrangementTracks" class="arrangementTracks"></div>
+  <div id="arrPlayhead" class="arrPlayhead"></div>
+  <!-- Performance timeline for recorded sounds -->
+  <div id="performanceTracks" class="arrangementTracks"></div>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:6px;"><span style="font-size:12px;color:#c9c9c9;">Zoom</span><input type="range" id="perfZoom" min="10" max="60" value="20" style="width:220px"></div>
 </div></div>
 
 <!-- Modal: Chord select -->
@@ -483,12 +508,94 @@
   undoBtn.onclick=()=>{ const fn=undoStack.pop(); if(fn) fn(); undoBtn.disabled = undoStack.length===0; };
 
   // ===== Chord steps =====
-  const NUM_STEPS=8; const stepData=Array(NUM_STEPS).fill(null); let active=0;
+  // Use a mutable number of steps so the user can add more chord steps dynamically.  Default to 8.
+  let NUM_STEPS=8;
+  const stepData=Array(NUM_STEPS).fill(null);
+  let active=0;
   for(let i=0;i<NUM_STEPS;i++){
     const b=document.createElement('div'); b.className='step'+(i===0?' bar1':''); b.textContent=i+1;
     b.title = `Стъпка ${i+1} – клик за избор/смяна на акорд`;
-    b.onclick=()=>{active=i; openChordModal(i); refreshSteps(); refreshPadsHighlight();};
+    // Single click selects this step (for quick pad assignment).  Double click opens the chord modal.
+    b.onclick = () => { active = i; refreshSteps(); refreshPadsHighlight(); };
+    b.ondblclick = () => { active = i; openChordModal(i); refreshSteps(); refreshPadsHighlight(); };
     chordSteps.appendChild(b);
+  }
+
+  // Event delegation for chord step clicks.  If individual handlers fail due to bubbling
+  // or other issues, this ensures clicks on any .step inside chordSteps will still
+  // select the appropriate step and (on double click) open the chord modal.
+  chordSteps.addEventListener('click', (e) => {
+    const el = e.target.closest('.step');
+    if (!el || !chordSteps.contains(el)) return;
+    const idx = Array.from(chordSteps.children).indexOf(el);
+    active = idx;
+    refreshSteps();
+    refreshPadsHighlight();
+  });
+  chordSteps.addEventListener('dblclick', (e) => {
+    const el = e.target.closest('.step');
+    if (!el || !chordSteps.contains(el)) return;
+    const idx = Array.from(chordSteps.children).indexOf(el);
+    active = idx;
+    openChordModal(idx);
+    refreshSteps();
+    refreshPadsHighlight();
+  });
+
+  // Numeric selector for current chord step.  Changing the number updates the active step.
+  const stepSelect = document.getElementById('stepSelect');
+  if (stepSelect) {
+    stepSelect.addEventListener('input', () => {
+      let val = parseInt(stepSelect.value) || 1;
+      // Clamp within existing steps
+      val = Math.max(1, Math.min(stepData.length, val));
+      stepSelect.value = val;
+      active = val - 1;
+      refreshSteps();
+      refreshPadsHighlight();
+    });
+  }
+
+  // Handle dynamic addition of chord steps.  When the user clicks the +Step button
+  // (rendered in the markup after the chordSteps container), append a new null
+  // entry to stepData, update the number of steps, and create a corresponding
+  // .step element.  We mark every first step of an 8‑step bar with the bar1
+  // class for visual grouping.  Refresh the UI after adding.
+  const addStepBtn = document.getElementById('addStep');
+  if (addStepBtn) {
+    addStepBtn.addEventListener('click', () => {
+      const idx = stepData.length;
+      // expand the stepData array with a new empty slot
+      stepData.push(null);
+      // update the dynamic step count used in modulo operations
+      NUM_STEPS = stepData.length;
+      // create the DOM element representing the new step
+      const b = document.createElement('div');
+      b.className = 'step';
+      if (idx % 8 === 0) b.classList.add('bar1');
+      b.textContent = idx + 1;
+      b.title = `Стъпка ${idx+1} – клик за избор/смяна на акорд`;
+      // Single click selects this step; double click opens chord chooser
+      b.onclick = () => {
+        active = idx;
+        refreshSteps();
+        refreshPadsHighlight();
+      };
+      b.ondblclick = () => {
+        active = idx;
+        openChordModal(idx);
+        refreshSteps();
+        refreshPadsHighlight();
+      };
+      chordSteps.appendChild(b);
+      // refresh visual highlights and timeline
+      refreshSteps();
+      refreshPadsHighlight();
+      // Redraw timeline at current pattern position (globalStep modulo DRUM_STEPS)
+      drawTimeline(globalStep % DRUM_STEPS);
+    // Update the max value of the step selector to reflect new step count
+    if (stepSelect) stepSelect.max = stepData.length;
+    });
   }
   function refreshSteps(){[...chordSteps.children].forEach((el,i)=>el.classList.toggle('active',i===active)); drawTimeline();}
   const roots=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -555,6 +662,15 @@
   // synth voice
   function mtof(m){return 440*Math.pow(2,(m-69)/12)}
   function voice(freq,dur=.48){
+    // Record the synth event into the performance timeline if available.
+    try{
+      if(typeof recordPerfEvent === 'function'){
+        const stepDurSec = 60 / tempo;
+        // Convert the requested voice duration (seconds) to an integer number of timeline steps.
+        const durSteps = Math.max(1, Math.round((dur||0.001) / stepDurSec));
+        recordPerfEvent('Synth', durSteps);
+      }
+    }catch(e){}
     const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq;
     const vca=ctx.createGain(); vca.gain.value=0;
     // Simple chorus vibrato: an LFO modulates oscillator detune.  Use global chorusRateVal and chorusWidthVal.
@@ -679,6 +795,15 @@
 
   // Drum voices
   function kick(amp=1){
+    // Record kick drum event into the performance timeline
+    try{
+      if(typeof recordPerfEvent === 'function'){
+        const stepDurSec = 60 / tempo;
+        // Kick envelope is roughly 0.15 seconds; convert to steps.
+        const durSteps = Math.max(1, Math.round(0.15 / stepDurSec));
+        recordPerfEvent('Kick', durSteps);
+      }
+    }catch(e){}
     const g = ctx.createGain(); g.gain.value = .9 * amp; g.connect(kickGain);
     const o = ctx.createOscillator(); o.type = 'sine';
     o.frequency.setValueAtTime(150, ctx.currentTime);
@@ -693,6 +818,14 @@
     }
   }
   function snare(amp=1){
+    // Record snare drum event into the performance timeline
+    try{
+      if(typeof recordPerfEvent === 'function'){
+        const stepDurSec = 60 / tempo;
+        const durSteps = Math.max(1, Math.round(0.15 / stepDurSec));
+        recordPerfEvent('Snare', durSteps);
+      }
+    }catch(e){}
     const len = ctx.sampleRate * .15;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -705,6 +838,15 @@
     n.start();
   }
   function hat(open=false, amp=1){
+    // Record hi-hat event into the performance timeline
+    try{
+      if(typeof recordPerfEvent === 'function'){
+        const stepDurSec = 60 / tempo;
+        const durSec = open ? 0.25 : 0.05;
+        const durSteps = Math.max(1, Math.round(durSec / stepDurSec));
+        recordPerfEvent(open ? 'OHH' : 'CHH', durSteps);
+      }
+    }catch(e){}
     const len = ctx.sampleRate * (open ? .25 : .05);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = buf.getChannelData(0);
@@ -720,42 +862,59 @@
   }
 
   // ===== Transport & Clock =====
-  let playing=false, step=0, timer;
+  // Playing state and timer.  We no longer use the local step counter here; instead we
+  // employ a global step (globalStep) for arrangement playback.  The pattern step
+  // displayed in the timeline is derived from globalStep via modulo DRUM_STEPS.
+  let playing=false, timer;
+  // Pattern step used for timeline scrubbing and editing.  Separate from globalStep.
+  let step = 0;
   function tick(){
-    // Determine base duration (seconds per beat) and apply swing for this step.  Each step is one beat.
+    // Compute the pattern-relative step (for timeline and swing) using globalStep
+    const stepInPattern = globalStep % DRUM_STEPS;
     const spb = 60 / tempo;
-    // Compute step duration with swing: even steps shortened, odd steps lengthened.
+    // Apply swing: shorten even steps and lengthen odd steps
     let stepDur = spb;
     if(swingVal > 0){
-      if((step % 2) === 0){
+      if((stepInPattern % 2) === 0){
         stepDur = spb * (1 - swingVal);
       } else {
         stepDur = spb * (1 + swingVal);
       }
     }
-    // Determine current chord step and schedule it with a small humanize offset
-    const cs = stepData[step % NUM_STEPS];
-    if(cs){
-      const offset = (Math.random() - 0.5) * humanizeAmt * spb;
-      setTimeout(() => {
-        if(arp.enabled) playArp(cs.tones, stepDur);
-        else            playChordStyle(cs.tones, stepDur);
-      }, offset * 1000);
-    }
-    // Trigger drums for this step respecting probability, velocity and accent
-    grid.forEach((row,r) => {
-      const cell = row[step % DRUM_STEPS];
-      if(cell && cell.on){
-        if(Math.random() <= cell.prob){
-          const amp = (cell.velocity || 1) * (cell.accent ? 2 : 1);
-          const offset = (Math.random() - 0.5) * humanizeAmt * stepDur;
-          setTimeout(() => {
-            ([kick, snare, (a)=>hat(false,a), (a)=>hat(true,a)])[r](amp);
-          }, offset * 1000);
+    // For each track and its clips, schedule synth or drum events when globalStep falls within a clip
+    tracks.forEach((track) => {
+      track.clips.forEach((clip) => {
+        const rel = globalStep - clip.start;
+        if(rel >= 0 && rel < clipLength){
+          if(track.type === 'synth'){
+            // Schedule chord/arpeggio for this relative step
+            const cs = stepData[rel % NUM_STEPS];
+            if(cs){
+              const offset = (Math.random() - 0.5) * humanizeAmt * spb;
+              setTimeout(() => {
+                if(arp.enabled) playArp(cs.tones, stepDur);
+                else            playChordStyle(cs.tones, stepDur);
+              }, offset * 1000);
+            }
+          } else if(track.type === 'drums'){
+            // Schedule drum hits for this relative step
+            grid.forEach((row, r) => {
+              const cell = row[rel % DRUM_STEPS];
+              if(cell && cell.on){
+                if(Math.random() <= cell.prob){
+                  const amp = (cell.velocity || 1) * (cell.accent ? 2 : 1);
+                  const offset = (Math.random() - 0.5) * humanizeAmt * stepDur;
+                  setTimeout(() => {
+                    ([kick, snare, (a)=>hat(false,a), (a)=>hat(true,a)])[r](amp);
+                  }, offset * 1000);
+                }
+              }
+            });
+          }
         }
-      }
+      });
     });
-    // Note‑Repeat: triggers for active rows at subdivision; apply humanize offset
+    // Global note‑repeat across arrangement; apply humanize offset
     if(noteRepeat.enabled){
       const sub = Math.max(1, noteRepeat.rate / 4);
       for(let i=0; i<sub; i++){
@@ -768,19 +927,45 @@
         }, i * (stepDur / sub) * 1000 + offset * 1000);
       }
     }
-    // Update timeline
-    drawTimeline(step);
-    // Advance step respecting A‑B loop
-    let nextStep = step + 1;
-    if(nextStep > loopBIdx) nextStep = loopAIdx;
-    step = nextStep;
+    // Update timeline (pattern view) and arrangement playhead
+    drawTimeline(stepInPattern);
+    updateArrPlayhead();
+    // Advance the global step for the next tick
+    globalStep++;
     timer = setTimeout(tick, stepDur * 1000);
   }
 
-  play.onclick=async()=>{ if(playing) return; await ctx.resume(); playing=true; tick(); };
-  stop.onclick=()=>{ playing=false; clearTimeout(timer); drawTimeline(step); };
-  reset.onclick=()=>{ step=0; drawTimeline(step); };
-  panic.onclick = ()=>{ playing=false; clearTimeout(timer); drawTimeline(step); mix.gain.setTargetAtTime(0,ctx.currentTime,.03); setTimeout(()=>mix.gain.setTargetAtTime(.9,ctx.currentTime,.03),120); };
+  play.onclick=async()=>{
+    // Start playback if not already playing.  Use the global step counter for sequencing.
+    if (playing) return;
+    await ctx.resume();
+    playing = true;
+    tick();
+  };
+  stop.onclick=()=>{
+    // Stop playback but do not reset the position.  The next play will resume from current globalStep.
+    playing = false;
+    clearTimeout(timer);
+    // Update the timeline to show the current pattern step
+    drawTimeline(globalStep % DRUM_STEPS);
+    // Also update the arrangement playhead visually
+    updateArrPlayhead();
+  };
+  reset.onclick=()=>{
+    // Reset sequence to the start of the arrangement
+    globalStep = 0;
+    drawTimeline(0);
+    updateArrPlayhead();
+  };
+  panic.onclick = ()=>{
+    // Stop everything and mute briefly
+    playing = false;
+    clearTimeout(timer);
+    drawTimeline(globalStep % DRUM_STEPS);
+    updateArrPlayhead();
+    mix.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+    setTimeout(() => mix.gain.setTargetAtTime(0.9, ctx.currentTime, 0.03), 120);
+  };
 
   // FX controls
   flt.oninput=()=>vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02);
@@ -981,6 +1166,139 @@
   exportStems.onclick = () => {
     alert('Stems export is not implemented yet in this demo.');
   };
+
+  // ===== Arrangement view (multi‑track arranger) =====
+  // Multi‑track arrangement allows separate rows for synth and drums.  Each track
+  // maintains its own list of clips (start positions in steps) and color.
+  const arrangementTracksEl = document.getElementById('arrangementTracks');
+  const arrPlayhead = document.getElementById('arrPlayhead');
+  // Pattern length in steps (drum pattern length).  Clips span this many steps.
+  const clipLength = DRUM_STEPS;
+  // Continuous step counter for arrangement playback
+  let globalStep = 0;
+  // Define tracks: synth and drums.  Each track has a name, type, color and list of clips
+  const tracks = [
+    { name: 'Synth', type: 'synth', color: '#4478e2', clips: [{ start: 0 }] },
+    { name: 'Drums', type: 'drums', color: '#e58a0e', clips: [{ start: 0 }] }
+  ];
+  // Dragging state for clips: track index and clip index being dragged
+  let draggedTrackIdx = null;
+  let draggedClipIdx = null;
+  let dragStartX = 0;
+  let initialStart = 0;
+
+  /**
+   * Render the arrangement tracks and clips.  Each track row displays a label,
+   * its clips as draggable colored boxes, and a + button to add new clips.
+   */
+  function drawArrangement(){
+    const stepWidth = 20;
+    // Determine required width based on clips across all tracks
+    let maxStep = clipLength;
+    tracks.forEach(track => {
+      track.clips.forEach(clip => {
+        if (clip.start + clipLength > maxStep) maxStep = clip.start + clipLength;
+      });
+    });
+    // Set container width
+    arrangementTracksEl.style.width = (maxStep * stepWidth) + 'px';
+    // Clear existing content
+    arrangementTracksEl.innerHTML = '';
+    // For each track, build a row
+    tracks.forEach((track, tIdx) => {
+      const row = document.createElement('div');
+      row.className = 'arrTrack';
+      // Label
+      const label = document.createElement('div');
+      label.className = 'arrTrackLabel';
+      label.textContent = track.name;
+      row.appendChild(label);
+      // Row container for clips
+      const rowContainer = document.createElement('div');
+      rowContainer.className = 'arrTrackRow';
+      // Create clip elements
+      track.clips.forEach((clip, cIdx) => {
+        const el = document.createElement('div');
+        el.className = 'arrClip';
+        el.style.left = (clip.start * stepWidth) + 'px';
+        el.style.width = (clipLength * stepWidth) + 'px';
+        el.style.background = track.color;
+        el.style.borderColor = track.color;
+        el.textContent = `${track.name} ${cIdx + 1}`;
+        el.onmousedown = (e) => {
+          e.preventDefault();
+          draggedTrackIdx = tIdx;
+          draggedClipIdx = cIdx;
+          dragStartX = e.clientX;
+          initialStart = clip.start;
+          document.addEventListener('mousemove', onClipMove);
+          document.addEventListener('mouseup', onClipUp);
+        };
+        rowContainer.appendChild(el);
+      });
+      // Add clip button for this track
+      const addBtn = document.createElement('button');
+      addBtn.className = 'arrAddClip';
+      addBtn.textContent = '+';
+      addBtn.title = 'Добави нов клип';
+      addBtn.onclick = () => {
+        let maxStart = 0;
+        track.clips.forEach(cl => { if (cl.start > maxStart) maxStart = cl.start; });
+        track.clips.push({ start: maxStart + clipLength });
+        drawArrangement();
+      };
+      rowContainer.appendChild(addBtn);
+      row.appendChild(rowContainer);
+      arrangementTracksEl.appendChild(row);
+    });
+    updateArrPlayhead();
+  }
+  /**
+   * During dragging, convert horizontal pixel movement to steps and update
+   * the clip's start within its track.  The clip is clamped at zero.
+   */
+  function onClipMove(e){
+    if (draggedTrackIdx === null || draggedClipIdx === null) return;
+    const stepWidth = 20;
+    const deltaPx = e.clientX - dragStartX;
+    const dSteps = Math.round(deltaPx / stepWidth);
+    const newStart = Math.max(0, initialStart + dSteps);
+    tracks[draggedTrackIdx].clips[draggedClipIdx].start = newStart;
+    drawArrangement();
+  }
+  /**
+   * End dragging; remove event listeners and reset drag state.
+   */
+  function onClipUp(){
+    draggedTrackIdx = null;
+    draggedClipIdx = null;
+    document.removeEventListener('mousemove', onClipMove);
+    document.removeEventListener('mouseup', onClipUp);
+  }
+  /**
+   * Update arrangement playhead: position left based on globalStep and adjust
+   * height to span all tracks.  Also extends arrangement width if needed.
+   */
+  function updateArrPlayhead(){
+    const stepWidth = 20;
+    // Position playhead horizontally by current global step
+    arrPlayhead.style.left = (globalStep * stepWidth) + 'px';
+    // Position playhead vertically to align with the arrangement container and span its height
+    // Use offsetTop to compute the top relative to the device container
+    const topOffset = arrangementTracksEl.offsetTop;
+    arrPlayhead.style.top = topOffset + 'px';
+    arrPlayhead.style.bottom = '';
+    const totalHeight = arrangementTracksEl.offsetHeight;
+    arrPlayhead.style.height = totalHeight + 'px';
+    // Extend arrangement width if playhead moves beyond current width
+    const requiredWidth = (globalStep + 1) * stepWidth;
+    const currentWidth = parseFloat(arrangementTracksEl.style.width) || 0;
+    if (requiredWidth > currentWidth) {
+      arrangementTracksEl.style.width = requiredWidth + 'px';
+    }
+  }
+  // Initial render of arrangement tracks
+  drawArrangement();
 
   // Recorder button handler leveraging both the manual ScriptProcessorNode for
   // high‑quality PCM capture and MediaRecorder for an additional compressed
@@ -1278,6 +1596,214 @@
 
   // initial state
   refreshPadsHighlight(); drawTimeline(0);
+
+  /* -------------------------------------------------------------------------
+   * Performance timeline for recording individual sounds
+   * This timeline captures every synth voice and drum hit triggered by the
+   * instrument.  Each recorded event is rendered as a draggable "clip" on
+   * its own track (Synth, Kick, Snare, CHH, OHH).  Users can move clips
+   * horizontally to reorder events, resize them by dragging the right edge,
+   * or delete them by double clicking.  The timeline starts empty and grows
+   * as the user generates sounds.  It does not interfere with the existing
+   * pattern timeline or arrangement view.
+   */
+
+  // Helper for recording events.  Declared as a function so it is hoisted
+  // and available to voice(), kick(), snare(), and hat() even though those
+  // definitions appear earlier in the file.
+  function recordPerfEvent(trackName, duration=1){
+    try{
+      if(typeof perfTracks === 'undefined' || !perfTracks) return;
+      const track = perfTracks.find(t => t.name === trackName);
+      if(!track) return;
+      // Append a new clip at the next available step for this track
+      const start = track.nextStep || 0;
+      track.clips.push({ start, duration });
+      track.nextStep = (track.nextStep || 0) + duration;
+      // Re-render the performance timeline if drawPerformance is defined
+      if(typeof drawPerformance === 'function') drawPerformance();
+      if(typeof syncPerfToArrangement === 'function') syncPerfToArrangement();
+    }catch(e){}
+  }
+
+  // If the performanceTracks element exists in the DOM, set up the tracks and
+  // drawing routines.  This guards against the timeline not being present.
+  const performanceTracksEl = document.getElementById('performanceTracks');
+  // Global step width (zoom) for performance timeline
+  var perfStepWidth = 20;
+  function setPerfZoom(px){
+    perfStepWidth = Math.max(10, Math.min(60, px|0));
+    if(typeof drawPerformance === 'function') drawPerformance();
+      if(typeof syncPerfToArrangement === 'function') syncPerfToArrangement();
+  }
+  // Sync performance (clips) into arranger `tracks` used by audio scheduling
+  function syncPerfToArrangement(){
+    try{
+      if(typeof tracks === 'undefined' || !tracks) return;
+      const s = perfTracks.find(t=>t.name==='Synth');
+      const d = perfTracks.find(t=>t.name==='Drums');
+      if(s){ tracks[0].clips = s.clips.map(c => ({ start: c.start })); }
+      if(d){ tracks[1].clips = d.clips.map(c => ({ start: c.start })); }
+      if(typeof drawArrangement === 'function') drawArrangement();
+    }catch(e){}
+  }
+
+  if(performanceTracksEl){
+    const perfZoomSlider = document.getElementById('perfZoom');
+    if(perfZoomSlider){ perfZoomSlider.addEventListener('input', ()=> setPerfZoom(+perfZoomSlider.value)); }
+    // Define an array of track objects.  Each track keeps a colour, a
+    // nextStep counter, and a list of recorded clips.  Using `var` for these
+    // declarations ensures they are accessible within recordPerfEvent.
+    var perfTracks = [
+      { name:'Synth', color:'#4478e2', nextStep:0, clips:[] },
+      { name:'Kick',  color:'#f60',    nextStep:0, clips:[] },
+      { name:'Snare', color:'#e5e',    nextStep:0, clips:[] },
+      { name:'CHH',   color:'#9cf',    nextStep:0, clips:[] },
+      { name:'OHH',   color:'#fc3',    nextStep:0, clips:[] }
+    ];
+    // Dragging state for clips in the performance timeline
+    var perfDraggedTrackIdx = null;
+    var perfDraggedClipIdx = null;
+    var perfDragStartX = 0;
+    var perfInitialStart = 0;
+    var perfResizing = false;
+    var perfInitialDuration = 0;
+
+    /**
+     * Render the performance timeline.  Each track row displays its clips as
+     * draggable, optionally resizable boxes.  The overall container width is
+     * determined by the furthest end of any clip.
+     */
+    function drawPerformance(){
+      const stepWidth = perfStepWidth;
+      // Determine the required width across all tracks
+      let maxStep = 0;
+      perfTracks.forEach(track => {
+        track.clips.forEach(clip => {
+          const end = clip.start + clip.duration;
+          if(end > maxStep) maxStep = end;
+        });
+      });
+      // Ensure the timeline has a minimum number of steps when empty.  Without
+      // this, an empty performance timeline collapses to zero width, hiding
+      // the track labels.  We use a sensible default so the user can see
+      // track rows even before any clips are recorded.
+      const defaultSteps = 16;
+      const totalSteps = Math.max(defaultSteps, maxStep);
+      performanceTracksEl.style.width = (totalSteps * stepWidth) + 'px';
+      performanceTracksEl.innerHTML = '';
+      // Click background to scrub playhead to a step
+      performanceTracksEl.onmousedown = (e)=>{
+        if(e.target !== performanceTracksEl) return;
+        const rect = performanceTracksEl.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const step = Math.max(0, Math.floor(x / stepWidth));
+        globalStep = step;
+        if(typeof drawTimeline==='function') drawTimeline(step % DRUM_STEPS);
+        if(typeof updateArrPlayhead==='function') updateArrPlayhead();
+      };
+      // Ctrl/Cmd + wheel to zoom horizontally
+      performanceTracksEl.onwheel = (e)=>{
+        if(e.ctrlKey || e.metaKey){ e.preventDefault(); setPerfZoom(perfStepWidth + (e.deltaY < 0 ? 2 : -2)); }
+      };
+      perfTracks.forEach((track, tIdx) => {
+        const row = document.createElement('div');
+        row.className = 'arrTrack';
+        // Label
+        const label = document.createElement('div');
+        label.className = 'arrTrackLabel';
+        label.textContent = track.name;
+        row.appendChild(label);
+        // Row container for clips
+        const rowContainer = document.createElement('div');
+        rowContainer.className = 'arrTrackRow';
+        // Create clip elements for this track
+        track.clips.forEach((clip, cIdx) => {
+          const el = document.createElement('div');
+          el.className = 'arrClip';
+          el.style.left = (clip.start * stepWidth) + 'px';
+          el.style.width = (clip.duration * stepWidth) + 'px';
+          el.style.background = track.color;
+          el.style.borderColor = track.color;
+          // Left empty to avoid overlay text clutter; optional text could go here
+          el.textContent = '';
+          // Handle click/drag events
+          el.onmousedown = (e) => {
+            e.preventDefault();
+            const rect = el.getBoundingClientRect();
+            // If click near right edge (within 6px), initiate resizing
+            if(rect.width - (e.clientX - rect.left) < 6){
+              perfDraggedTrackIdx = tIdx;
+              perfDraggedClipIdx = cIdx;
+              perfResizing = true;
+              perfDragStartX = e.clientX;
+              perfInitialDuration = clip.duration;
+              document.addEventListener('mousemove', onPerfResize);
+              document.addEventListener('mouseup', onPerfResizeEnd);
+            } else {
+              // Otherwise initiate moving
+              perfDraggedTrackIdx = tIdx;
+              perfDraggedClipIdx = cIdx;
+              perfResizing = false;
+              perfDragStartX = e.clientX;
+              perfInitialStart = clip.start;
+              document.addEventListener('mousemove', onPerfMove);
+              document.addEventListener('mouseup', onPerfUp);
+            }
+          };
+          // Double click to delete the clip
+          el.ondblclick = () => {
+            track.clips.splice(cIdx, 1);
+            drawPerformance();
+          };
+          rowContainer.appendChild(el);
+        });
+        row.appendChild(rowContainer);
+        performanceTracksEl.appendChild(row);
+      });
+    }
+    // Move handler: update the clip's start based on mouse movement
+    function onPerfMove(e){
+      if(perfDraggedTrackIdx === null || perfDraggedClipIdx === null) return;
+      const stepWidth = 20;
+      const deltaPx = e.clientX - perfDragStartX;
+      const dSteps = Math.round(deltaPx / stepWidth);
+      const newStart = Math.max(0, perfInitialStart + dSteps);
+      perfTracks[perfDraggedTrackIdx].clips[perfDraggedClipIdx].start = newStart;
+      drawPerformance();
+    }
+    // Mouseup handler after moving
+    function onPerfUp(){
+      perfDraggedTrackIdx = null;
+      perfDraggedClipIdx = null;
+      document.removeEventListener('mousemove', onPerfMove);
+      document.removeEventListener('mouseup', onPerfUp);
+      // Sync edits to audio arranger
+      syncPerfToArrangement();
+    }
+    // Resize handler: update clip duration
+    function onPerfResize(e){
+      if(perfDraggedTrackIdx === null || perfDraggedClipIdx === null) return;
+      const stepWidth = 20;
+      const deltaPx = e.clientX - perfDragStartX;
+      const dSteps = Math.round(deltaPx / stepWidth);
+      const newDuration = Math.max(1, perfInitialDuration + dSteps);
+      perfTracks[perfDraggedTrackIdx].clips[perfDraggedClipIdx].duration = newDuration;
+      drawPerformance();
+    }
+    // Mouseup handler after resizing
+    function onPerfResizeEnd(){
+      perfDraggedTrackIdx = null;
+      perfDraggedClipIdx = null;
+      perfResizing = false;
+      document.removeEventListener('mousemove', onPerfResize);
+      document.removeEventListener('mouseup', onPerfResizeEnd);
+      // Sync edits to audio arranger
+      syncPerfToArrangement();
+    }
+    // Initial empty draw
+    drawPerformance();
+  }
 })();
 </script>
 </body>
