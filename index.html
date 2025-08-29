@@ -121,6 +121,7 @@
   .noteGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:6px}
   .noteBtn{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:8px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
   .noteBtn:active{transform:scale(0.96)}
+  .noteBtn.selected{outline:2px solid var(--accent)}
   .mpcGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
   .mpcPad{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:20px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
   .mpcPad.selected{outline:2px solid var(--accent)}
@@ -771,7 +772,7 @@
   ['sine','square','saw','triangle','sawdown','pulse50','pulse25','sine'].forEach(shape=>{
     waveTables.push(buildWavetable(shape));
   });
-  let waveHoldNote = null;
+  let waveHoldNote = null; let waveSelectedBtn = null;
   function initWaveNoteGrid(){
     if(!waveNoteGrid) return;
     waveNoteGrid.innerHTML = '';
@@ -783,6 +784,12 @@
       btn.textContent = name;
       btn.onmousedown = ()=>{
         const freq = mtof(midiVals[i]);
+        // If hold is enabled, visually mark the selected note button
+        if(waveHold && waveHold.checked){
+          if(waveSelectedBtn){ waveSelectedBtn.classList.remove('selected'); }
+          btn.classList.add('selected');
+          waveSelectedBtn = btn;
+        }
         playWavetable(freq);
       };
       waveNoteGrid.appendChild(btn);
@@ -819,6 +826,25 @@
     }
   }
   initWaveNoteGrid();
+  // Ensure held note can be released by toggling 'Wave Hold' off
+  if(waveHold){
+    waveHold.addEventListener('change', () => {
+      if(!waveHold.checked && waveHoldNote){
+        try{
+          // Smoothly release the held note to avoid clicks
+          waveHoldNote.gain.gain.cancelScheduledValues(ctx.currentTime);
+          waveHoldNote.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+          waveHoldNote.osc.stop(ctx.currentTime + 0.1);
+        }catch(e){ try{ waveHoldNote.osc.stop(); }catch(_){} }
+        waveHoldNote = null;
+      }
+      // Clear held-note visual highlight when disabling hold
+      if(!waveHold.checked && waveSelectedBtn){
+        waveSelectedBtn.classList.remove('selected');
+        waveSelectedBtn = null;
+      }
+    });
+  }
 
   // ---- Granular Pad Module ----
   let granBuffer = null;
