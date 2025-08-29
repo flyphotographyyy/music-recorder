@@ -107,6 +107,15 @@
   .tempoSlider{ width:180px; vertical-align:middle; }
   @media (max-width: 720px){ .tempoSlider{ width:140px; } }
 
+  /* === Added styles for Drum Rack and Macros === */
+  /* Drum rack grid layout: 4 columns of pads */
+  .drumRackGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+  /* Individual pad styling */
+  .drumRackPad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:18px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
+  .drumRackPad.active{outline:2px solid var(--accent)}
+  .drumRackPad.accent{box-shadow:0 0 0 2px var(--accent) inset}
+  .drumRackPad small{display:block;color:var(--muted);font-size:11px}
+
 </style>
 </head>
 <body>
@@ -148,6 +157,22 @@
           </select>
         </div>
         <div class="control"><label>Variation</label><input id="var" type="range" min="0" max="1" step="0.01" value="0.5" title="Скорост/разпределение на нотите при Style"></div>
+      </div>
+
+      <!-- Key & Scale selection for chord pads -->
+      <div class="row" style="margin-top:8px">
+        <div class="control"><label>Key</label>
+          <select id="keySel">
+            <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+            <option>F</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+            <option>Bb</option><option>B</option>
+          </select>
+        </div>
+        <div class="control"><label>Scale</label>
+          <select id="scaleSel">
+            <option>Major</option><option>Minor</option>
+          </select>
+        </div>
       </div>
 
       <!-- Arpeggiator -->
@@ -225,8 +250,42 @@
           <input id="nrLatch" type="checkbox">
         </div>
       </div>
+    
+<div class="panel" id="drumRackPanel" style="grid-column:1/-1">
+      <div class="drumHead">Drum Rack</div>
+      <div class="row" style="grid-template-columns:1fr 1fr; margin-bottom:8px">
+        <div class="control"><label>Kit</label>
+          <select id="drumKit">
+            <option>Lo-Fi</option><option>Hip-Hop</option><option>House</option><option>Techno</option>
+          </select>
+        </div>
+        <div class="control"><label>Load Samples</label>
+          <input type="file" id="sampleLoader" multiple accept="audio/*">
+        </div>
+      </div>
+      <div id="drumRackGrid" class="drumRackGrid"></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:6px">
+        Click pads to play. Alt/Option‑click toggles accent. Drag & drop files or use Load Samples to assign your own sounds.
+      </div>
     </div>
+
+<div class="panel" id="macrosPanel" style="grid-column:1/-1">
+      <div class="drumHead">Macros</div>
+      <div class="row" style="grid-template-columns:repeat(4,1fr); margin-top:4px">
+        <div class="control"><label>Brightness</label><input id="macro1" type="range" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="control"><label>Reverb</label><input id="macro2" type="range" min="0" max="1" step="0.01" value="0.25"></div>
+        <div class="control"><label>Saturation</label><input id="macro3" type="range" min="0" max="1" step="0.01" value="0"></div>
+        <div class="control"><label>Delay</label><input id="macro4" type="range" min="0" max="1" step="0.01" value="0.2"></div>
+      </div>
+    </div>
+</div>
   </div>
+
+    <!-- Drum Rack panel -->
+    
+
+    <!-- Macros panel -->
+    
 
   <div class="transport">
     <button class="btn primary" id="play" title="Пусни последователността">Play</button>
@@ -503,6 +562,211 @@
   // Note-Repeat UI
   const nrOn=document.getElementById('nrOn'), nrRate=document.getElementById('nrRate');
 
+  // === Additional UI references for new features ===
+  const keySel=document.getElementById('keySel');
+  const scaleSel=document.getElementById('scaleSel');
+  const drumRackGrid=document.getElementById('drumRackGrid');
+  const drumKitSel=document.getElementById('drumKit');
+  const sampleLoader=document.getElementById('sampleLoader');
+  const macro1=document.getElementById('macro1');
+  const macro2=document.getElementById('macro2');
+  const macro3=document.getElementById('macro3');
+  const macro4=document.getElementById('macro4');
+
+  // === Macro control logic ===
+  function updateMacros(){
+    if(!macro1||!macro2||!macro3||!macro4) return;
+    // brightness controls the filter cutoff (200-8000 Hz)
+    const m1=parseFloat(macro1.value||0);
+    vcf.frequency.value=200 + (8000 - 200) * m1;
+    // reverb mix amount
+    const m2=parseFloat(macro2.value||0);
+    rGain.gain.value = m2;
+    // saturation / drive
+    const m3=parseFloat(macro3.value||0);
+    driveAmt = m3;
+    driveNode.curve = makeDriveCurve(m3);
+    dryGain.gain.value = 1 - m3;
+    driveGain.gain.value = m3;
+    // delay feedback/mix level
+    const m4=parseFloat(macro4.value||0);
+    dGain.gain.value = m4;
+  }
+  [macro1,macro2,macro3,macro4].forEach(el=>{ if(el) el.addEventListener('input', updateMacros); });
+  // Initialize macros once DOM is ready
+  setTimeout(updateMacros, 0);
+
+  // ===== Drum Rack Implementation =====
+  // Array to hold pad objects: {el, sampleFunc, buffer, accent, label}
+  const drumRackPads = [];
+
+  /**
+   * Initialize the drum rack grid by creating pad elements, attaching
+   * click/drag handlers, and adding them to the DOM.  Each pad
+   * represents one of 16 cells in a 4×4 grid.  Pads are assigned a
+   * default sample function via kits, but may be overwritten by
+   * loading custom samples.  Alt/Option click toggles accent.
+   */
+  function initDrumRack(){
+    if(!drumRackGrid || drumRackPads.length) return;
+    const names = ['Kick','Snare','Clap','HH','Tom1','Tom2','Tom3','Tom4','Perc1','Perc2','Perc3','Perc4','FX1','FX2','FX3','FX4'];
+    for(let i=0;i<16;i++){
+      const el = document.createElement('div');
+      el.className = 'drumRackPad';
+      el.innerHTML = `<div style="font-weight:700">${names[i]}</div><small></small>`;
+      el.title = names[i];
+      const pad = { el: el, sampleFunc: null, buffer: null, accent: false, label: names[i] };
+      drumRackPads.push(pad);
+      drumRackGrid.appendChild(el);
+      // Click handler: play pad or toggle accent
+      el.onmousedown = (e) => {
+        flash(el);
+        // On alt or meta key, toggle accent flag
+        if(e.altKey || e.metaKey){
+          pad.accent = !pad.accent;
+          el.classList.toggle('accent', pad.accent);
+        } else {
+          // Play pad with pointer pressure if available
+          playDrumPad(i, e.pressure || 1);
+        }
+      };
+      // Drag & drop: highlight on drag over and decode dropped audio
+      el.ondragover = (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; el.style.filter = 'brightness(1.2)'; };
+      el.ondragleave = (ev) => { el.style.filter = ''; };
+      el.ondrop = (ev) => {
+        ev.preventDefault(); el.style.filter = '';
+        const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if(file) loadSampleToPad(file, i);
+      };
+    }
+  }
+
+  /**
+   * Drum kit definitions.  Each kit maps to an array of 16 functions
+   * accepting an amplitude argument (0..1).  Each function triggers
+   * a built-in synth drum voice (kick/snare/clap/hat/tom/perc).  Kits
+   * can be extended or replaced by user-loaded samples.  When no
+   * function is provided for a pad index, playback falls back to the
+   * default kit (Lo-Fi).
+   */
+  const drumKits = {
+    'Lo-Fi': [
+      (a)=>kick(a*0.8),(a)=>snare(a*0.8),(a)=>clap(a*0.7),(a)=>hat(false,a*0.5),
+      (a)=>tom(1,a),(a)=>tom(2,a),(a)=>tom(3,a),(a)=>tom(4,a),
+      (a)=>perc(1,a),(a)=>perc(2,a),(a)=>perc(3,a),(a)=>perc(4,a),
+      (a)=>hat(true,a*0.6),(a)=>snare(a*0.5),(a)=>kick(a*0.5),(a)=>clap(a*0.5)
+    ],
+    'Hip-Hop': [
+      (a)=>kick(a*1),(a)=>snare(a*1),(a)=>clap(a*0.9),(a)=>hat(false,a*0.6),
+      (a)=>tom(1,a*1.1),(a)=>tom(2,a*1.1),(a)=>tom(3,a*1.1),(a)=>tom(4,a*1.1),
+      (a)=>perc(1,a*0.9),(a)=>perc(2,a*0.9),(a)=>perc(3,a*0.9),(a)=>perc(4,a*0.9),
+      (a)=>hat(true,a*0.7),(a)=>snare(a*0.6),(a)=>kick(a*0.6),(a)=>clap(a*0.6)
+    ],
+    'House': [
+      (a)=>kick(a*1),(a)=>snare(a*0.8),(a)=>clap(a*0.8),(a)=>hat(false,a*0.7),
+      (a)=>tom(1,a*0.6),(a)=>tom(2,a*0.6),(a)=>tom(3,a*0.6),(a)=>tom(4,a*0.6),
+      (a)=>perc(1,a*0.7),(a)=>perc(2,a*0.7),(a)=>perc(3,a*0.7),(a)=>perc(4,a*0.7),
+      (a)=>hat(true,a*0.8),(a)=>snare(a*0.7),(a)=>kick(a*0.7),(a)=>clap(a*0.7)
+    ],
+    'Techno': [
+      (a)=>kick(a*1),(a)=>snare(a*0.7),(a)=>clap(a*0.7),(a)=>hat(false,a*0.8),
+      (a)=>tom(1,a*0.9),(a)=>tom(2,a*0.9),(a)=>tom(3,a*0.9),(a)=>tom(4,a*0.9),
+      (a)=>perc(1,a*0.8),(a)=>perc(2,a*0.8),(a)=>perc(3,a*0.8),(a)=>perc(4,a*0.8),
+      (a)=>hat(true,a*0.9),(a)=>snare(a*0.8),(a)=>kick(a*0.8),(a)=>clap(a*0.8)
+    ]
+  };
+
+  /**
+   * Load a given drum kit by name.  Assigns each pad's sampleFunc
+   * according to the selected kit.  Custom loaded samples (buffers)
+   * take precedence over sampleFuncs and are not cleared.  If a kit
+   * doesn't provide a function for a pad index, the Lo-Fi kit will
+   * supply a fallback.
+   * @param {string} name Name of the kit (Lo-Fi, Hip-Hop, House, Techno)
+   */
+  function loadKit(name){
+    const kit = drumKits[name] || drumKits['Lo-Fi'];
+    drumRackPads.forEach((pad,i)=>{
+      pad.sampleFunc = kit[i] || drumKits['Lo-Fi'][i];
+      // leaving pad.buffer unchanged preserves user samples
+    });
+  }
+
+  /**
+   * Play a drum rack pad by index.  If a custom buffer is loaded on
+   * the pad, it is played via BufferSource and routed to the drum bus
+   * with an individual gain; otherwise the sampleFunc is invoked.
+   * @param {number} idx Pad index (0–15)
+   * @param {number} amp Amplitude multiplier (0..1)
+   */
+  function playDrumPad(idx, amp=1){
+    const pad = drumRackPads[idx];
+    if(!pad) return;
+    const a = amp * (pad.accent ? 1.25 : 1);
+    if(pad.buffer){
+      const src = ctx.createBufferSource();
+      src.buffer = pad.buffer;
+      const g = ctx.createGain(); g.gain.value = a;
+      src.connect(g); g.connect(drumBus);
+      src.start();
+    } else if(pad.sampleFunc){
+      pad.sampleFunc(a);
+    }
+    // record into performance timeline if available
+    try{
+      if(typeof recordPerfEvent === 'function'){
+        const stepDurSec = 60 / tempo;
+        const durSteps = 1;
+        recordPerfEvent('Pad'+idx, durSteps);
+      }
+    }catch(e){}
+  }
+
+  /**
+   * Decode an audio file and assign it to a pad.  Once loaded,
+   * pad.sampleFunc is set to null to avoid fallback kit.
+   */
+  function loadSampleToPad(file, idx){
+    const reader = new FileReader();
+    reader.onload = () => {
+      ctx.decodeAudioData(reader.result).then((buf)=>{
+        drumRackPads[idx].buffer = buf;
+        drumRackPads[idx].sampleFunc = null;
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // Handle loading multiple samples via the hidden file input
+  if(sampleLoader){
+    sampleLoader.addEventListener('change', () => {
+      const files = Array.from(sampleLoader.files || []);
+      files.forEach((file,i)=>{
+        if(i < drumRackPads.length){
+          const reader = new FileReader();
+          reader.onload = () => {
+            ctx.decodeAudioData(reader.result).then((buf)=>{
+              drumRackPads[i].buffer = buf;
+              drumRackPads[i].sampleFunc = null;
+            });
+          };
+          reader.readAsArrayBuffer(file);
+        }
+      });
+    });
+  }
+
+  // Listen for kit changes
+  if(drumKitSel){
+    drumKitSel.addEventListener('change', ()=>loadKit(drumKitSel.value));
+  }
+
+  // Initialize drum rack and load default kit on startup
+  setTimeout(() => {
+    initDrumRack();
+    loadKit(drumKitSel ? drumKitSel.value : 'Lo-Fi');
+  }, 0);
+
   // Button micro-feedback
   function flash(el){ el.classList.add('press'); setTimeout(()=>el.classList.remove('press'),110); }
   [play,stop,reset,rec,dl,undoBtn,openPatches,closePatches,panic].forEach(b=>b.addEventListener('mousedown',()=>flash(b)));
@@ -620,18 +884,60 @@
   function chordTones(r,q){const ri=roots.indexOf(r);const map={maj:[0,4,7],min:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],dom7:[0,4,7,10],dim:[0,3,6],aug:[0,4,8],sus2:[0,2,7]};return map[q].map(s=>48+((ri)%12)+s)}
   function chordLabel(obj){ return obj ? `${obj.r} ${obj.q}` : 'none'; }
 
-  // Quick pads
-  const quickPads = [['C','maj'],['D','min'],['E','min'],['F','maj'],['G','maj'],['A','min'],['B','dim'],['C','dom7']].map(([r,q])=>{
-    const p=document.createElement('div'); p.className='pad'; p.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
+  // Quick pads (dynamically generated based on selected key/scale)
+  // degrees map: indices into major/minor scale offsets for each pad
+  const quickPadDegrees = [0,1,2,3,4,5,6,4];
+  const scaleOffsets = {
+    'Major': [0,2,4,5,7,9,11],
+    'Minor': [0,2,3,5,7,8,10]
+  };
+  const chordQualities = {
+    'Major': ['maj','min','min','maj','maj','min','dim','dom7'],
+    'Minor': ['min','dim','maj','min','min','maj','maj','dom7']
+  };
+  const quickPads = [];
+  for(let i=0;i<8;i++){
+    const p=document.createElement('div');
+    p.className='pad';
+    p.innerHTML='<div style="font-weight:700">&nbsp;</div><small>&nbsp;</small>';
     p.title = "Клик – добавя акорда към избраната стъпка";
     p.onmousedown=()=>flash(p);
-    p.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
-      stepData[active]={r,q,tones:chordTones(r,q)};
-      pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
-      refreshPadsHighlight(); drawTimeline();
-    };
-    pads.appendChild(p); return {el:p,r,q};
-  });
+    // closure to capture index
+    ((idx)=>{
+      p.onclick=()=>{
+        const {r,q} = quickPads[idx];
+        const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
+        stepData[active]={r,q,tones:chordTones(r,q)};
+        pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
+        refreshPadsHighlight(); drawTimeline();
+      };
+    })(i);
+    pads.appendChild(p);
+    quickPads.push({el:p,r:null,q:null});
+  }
+  function updateQuickPads(){
+    const key = keySel ? keySel.value : 'C';
+    const scale = scaleSel ? scaleSel.value : 'Major';
+    const rootIndex = roots.indexOf(key);
+    const offsets = scaleOffsets[scale] || scaleOffsets['Major'];
+    const qualsArr = chordQualities[scale] || chordQualities['Major'];
+    quickPads.forEach((obj,i)=>{
+      const degree = quickPadDegrees[i] % offsets.length;
+      const semitone = (rootIndex + offsets[degree]) % 12;
+      const noteName = roots[semitone];
+      // Determine chord quality: the 8th pad uses a dominant 7 regardless of scale
+      const q = (i === 7) ? 'dom7' : (qualsArr[degree] || 'maj');
+      obj.r = noteName;
+      obj.q = q;
+      obj.el.innerHTML = `<div style=\"font-weight:700\">${noteName}</div><small>${q}</small>`;
+    });
+    refreshPadsHighlight();
+  }
+  if(keySel && scaleSel){
+    keySel.addEventListener('change', updateQuickPads);
+    scaleSel.addEventListener('change', updateQuickPads);
+    setTimeout(updateQuickPads,0);
+  }
   function sameChord(a,b){ return a && b && a.r===b.r && a.q===b.q; }
   function refreshPadsHighlight(){ const current=stepData[active]; quickPads.forEach(({el,r,q})=>el.classList.toggle('selected', sameChord(current,{r,q}))); }
 
@@ -678,7 +984,7 @@
 
   // synth voice
   function mtof(m){return 440*Math.pow(2,(m-69)/12)}
-  function voice(freq,dur=.48){
+  function voice(freq,dur=.48,amp=1){
     // Record the synth event into the performance timeline if available.
     try{
       if(typeof recordPerfEvent === 'function'){
@@ -699,7 +1005,7 @@
     det.connect(o.detune);
     o.connect(vca); vca.connect(synthIn);
     const now=ctx.currentTime;
-    vca.gain.linearRampToValueAtTime(.9,now+.01);
+    vca.gain.linearRampToValueAtTime(.9*amp,now+.01);
     vca.gain.exponentialRampToValueAtTime(.001, now + dur);
     o.start(); chorus.start(); o.stop(now+dur+1);
   }
@@ -876,6 +1182,61 @@
     n.connect(hp); hp.connect(g);
     g.connect(open ? ohhGain : chhGain);
     n.start();
+  }
+
+  // ===== Additional drum voices for Drum Rack =====
+  /**
+   * Clap: simple noise burst with a fast decay, routed through the snare gain.
+   * @param {number} amp Amplitude multiplier (0..1)
+   */
+  function clap(amp=1){
+    const len = ctx.sampleRate * 0.25;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<len;i++){
+      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, 2);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = 0.7 * amp;
+    src.connect(g); g.connect(snareGain);
+    src.start();
+  }
+
+  /**
+   * Tom: pitched drum using a sine oscillator.  n selects the pitch tier (1–4).
+   * @param {number} n Index of tom (1 to 4)
+   * @param {number} amp Amplitude multiplier (0..1)
+   */
+  function tom(n=1, amp=1){
+    const g = ctx.createGain(); g.gain.value = 0.8 * amp;
+    g.connect(drumBus);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    const freq = 100 + (n * 40);
+    o.frequency.setValueAtTime(freq, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq / 2, ctx.currentTime + 0.35);
+    o.connect(g);
+    g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + 0.4);
+    o.start(); o.stop(ctx.currentTime + 0.45);
+  }
+
+  /**
+   * Percussion: short noise burst with high-pass filtering.  n selects
+   * the cutoff frequency tier (1–4).
+   * @param {number} n Tier of perc (1–4)
+   * @param {number} amp Amplitude multiplier (0..1)
+   */
+  function perc(n=1, amp=1){
+    const len = ctx.sampleRate * 0.15;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<len;i++){
+      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, 1.5);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500 + n * 500;
+    const g = ctx.createGain(); g.gain.value = 0.6 * amp;
+    src.connect(hp); hp.connect(g); g.connect(drumBus);
+    src.start();
   }
 
   // ===== Transport & Clock =====
@@ -1820,6 +2181,84 @@
     }
     // Initial empty draw
     drawPerformance();
+  }
+
+  // ===== MIDI Learn & MPK mini mk3 Mapping =====
+  // Pitch bend amount in semitones (±2 by default)
+  let pitchBendSemi = 0;
+  /**
+   * Handle incoming MIDI messages.  Routes note and control events
+   * to appropriate handlers and maintains pitch bend state.
+   */
+  function handleMIDIMessage(e){
+    const [status, data1, data2] = e.data;
+    const cmd = status & 0xF0;
+    if(cmd === 0x90 && data2 > 0){
+      handleNoteOn(data1, data2 / 127);
+    } else if(cmd === 0x80 || (cmd === 0x90 && data2 === 0)){
+      handleNoteOff(data1);
+    } else if(cmd === 0xB0){
+      handleControlChange(data1, data2);
+    } else if(cmd === 0xE0){
+      const value14 = (data2 << 7) | data1;
+      pitchBendSemi = (value14 - 8192) / 8192 * 2;
+    }
+  }
+  /**
+   * Note-on handler.  Pads on the AKAI MPK mini mk3 send notes 36–51;
+   * map them to the 16 drum rack pads.  Other notes trigger the
+   * synthesizer voice directly.  Velocity controls amplitude.
+   * @param {number} note MIDI note number
+   * @param {number} vel Normalized velocity (0..1)
+   */
+  function handleNoteOn(note, vel){
+    if(note >= 36 && note < 36 + drumRackPads.length){
+      const idx = note - 36;
+      playDrumPad(idx, vel);
+    } else {
+      const freq = mtof(note) * Math.pow(2, pitchBendSemi / 12);
+      voice(freq, 0.4, vel);
+    }
+  }
+  /**
+   * Note-off handler.  Currently unused because voices are one-shot.
+   */
+  function handleNoteOff(note){ }
+  /**
+   * Control change handler.  Maps knobs to macros and other parameters.
+   * On the MPK mini mk3 the eight knobs typically send CC70–77.  The
+   * first four knobs adjust the four macros; additional knobs also map
+   * to macros so users can remap in their software if needed.  The
+   * mod wheel (CC1) controls filter LFO depth and CC7 controls
+   * synthesizer volume.
+   * @param {number} cc Controller number
+   * @param {number} val Raw value (0–127)
+   */
+  function handleControlChange(cc, val){
+    const normalized = val / 127;
+    if(cc >= 70 && cc <= 73){
+      const idx = cc - 70;
+      const macroEl = [macro1, macro2, macro3, macro4][idx];
+      if(macroEl){ macroEl.value = normalized; updateMacros(); }
+    } else if(cc === 1){
+      lfoGain.gain.value = normalized * 1000;
+    } else if(cc === 7){
+      synthVol.gain.value = normalized;
+    } else if(cc >= 74 && cc <= 77){
+      const idx = cc - 74;
+      const macroEl = [macro1, macro2, macro3, macro4][idx];
+      if(macroEl){ macroEl.value = normalized; updateMacros(); }
+    }
+  }
+  // Initialize WebMIDI and attach message handlers to all inputs
+  if(navigator.requestMIDIAccess){
+    navigator.requestMIDIAccess().then((access)=>{
+      access.inputs.forEach((input)=>{
+        input.onmidimessage = handleMIDIMessage;
+      });
+    }).catch((err)=>{
+      console.warn('MIDI access failed:', err);
+    });
   }
 })();
 </script>
