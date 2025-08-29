@@ -127,6 +127,28 @@
   .mpcPad.selected{outline:2px solid var(--accent)}
   .mpcPad:active{transform:scale(0.96)}
 
+  /* When a sample is loaded onto an MPC pad, visually mark it and show a delete control */
+  .mpcPad.hasSample{
+    /* outline and subtle glow to indicate the pad contains audio */
+    outline:2px solid var(--accent);
+    box-shadow:0 0 4px 1px rgba(255,106,0,0.5) inset;
+    position:relative;
+  }
+  .mpcPad .delBtn{
+    position:absolute;
+    top:2px;
+    right:4px;
+    font-size:14px;
+    line-height:14px;
+    color:#f66;
+    cursor:pointer;
+    background:rgba(0,0,0,0.6);
+    border-radius:4px;
+    padding:0 4px;
+    display:none;
+  }
+  .mpcPad.hasSample .delBtn{ display:block; }
+
 </style>
 </head>
 <body>
@@ -338,6 +360,16 @@
         <div class="control"><label>Load Sample</label><input id="mpcLoad" type="file" accept="audio/*"></div>
         <div class="control"><label>Volume</label><input id="mpcVol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
       </div>
+      <!-- Additional MPC controls: direct recording and persistence -->
+      <div class="row" style="grid-template-columns:1fr; margin-top:6px">
+        <button class="btn" id="mpcRecord" title="Record audio and assign to the first MPC pad">Record to MPC Sampler</button>
+      </div>
+      <div class="row" style="grid-template-columns:repeat(2,1fr); margin-top:6px">
+        <button class="btn" id="mpcSave" title="Save MPC pads to a JSON file">Save MPC</button>
+        <button class="btn" id="mpcLoadBtn" title="Load MPC pads from a JSON file">Load MPC</button>
+      </div>
+      <!-- Hidden file input for loading MPC pad assignments -->
+      <input type="file" id="mpcLoadFile" accept=".json" style="display:none">
     </div>
     </div>
 </div>
@@ -611,6 +643,11 @@
   const pads=document.getElementById('pads'), chordSteps=document.getElementById('chordSteps');
   const play=document.getElementById('play'), stop=document.getElementById('stop'), reset=document.getElementById('reset');
   const rec=document.getElementById('rec'), dl=document.getElementById('dl'), undoBtn=document.getElementById('undo'), panic=document.getElementById('panic');
+  // === Additional UI controls for MPC sampler persistence and direct recording ===
+  const mpcRecordBtn = document.getElementById('mpcRecord');
+  const mpcSaveBtn   = document.getElementById('mpcSave');
+  const mpcLoadBtn   = document.getElementById('mpcLoadBtn');
+  const mpcLoadFile  = document.getElementById('mpcLoadFile');
   const kickVol=document.getElementById('kickVol'), snareVol=document.getElementById('snareVol'), chhVol=document.getElementById('chhVol'), ohhVol=document.getElementById('ohhVol');
   const timeline=document.getElementById('timeline'), tctx=timeline.getContext('2d');
   const drumGridContainer=document.getElementById('drumGridContainer');
@@ -909,6 +946,40 @@
       mpcGrid.appendChild(el);
     }
   }
+
+  /**
+   * Ensure a delete button exists on a pad element.  The delete button is
+   * shown only when a sample is assigned to the pad.  Clicking it will
+   * remove the sample and reset the pad's properties without triggering
+   * playback or selection.
+   * @param {number} idx Index of the MPC pad
+   */
+  function ensureDelBtnForPad(idx){
+    const pad = mpcPads[idx];
+    if(!pad || !pad.el) return;
+    // Only create one delete button per pad
+    if(pad.el.querySelector('.delBtn')) return;
+    const btn = document.createElement('div');
+    btn.className = 'delBtn';
+    btn.textContent = '×';
+    btn.title = 'Delete sample';
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      // Clear buffer and reset properties
+      pad.buffer = null;
+      pad.start = 0;
+      pad.end = 1;
+      pad.pitch = 0;
+      pad.attack = 0;
+      pad.decay = 0.1;
+      pad.el.classList.remove('hasSample');
+      // Remove delete button from DOM
+      btn.remove();
+      // If this pad is currently selected, refresh selection display
+      refreshMpcSelection();
+    };
+    pad.el.appendChild(btn);
+  }
   function refreshMpcSelection(){
     mpcPads.forEach((p,idx)=>{
       p.el.classList.toggle('selected', idx===selectedMpcIdx);
@@ -933,6 +1004,11 @@
         pad.pitch = 0;
         pad.attack = 0;
         pad.decay = 0.1;
+        // Mark pad as having a sample and add delete control
+        if(pad && pad.el){
+          pad.el.classList.add('hasSample');
+          ensureDelBtnForPad(idx);
+        }
       });
     };
     reader.readAsArrayBuffer(file);
@@ -982,6 +1058,188 @@
     if(idx>=0 && mpcLoad.files && mpcLoad.files[0]) loadSampleToMpcPad(mpcLoad.files[0], idx);
   });
   initMpc();
+
+  /**
+   * Convert a Blob to a base64 encoded string.  Returns a Promise that
+   * resolves with the base64 data (without the data URI prefix).
+   * @param {Blob} blob The blob to convert
+   * @returns {Promise<string>} Base64 encoded contents
+   */
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result || '';
+        const commaIdx = result.indexOf(',');
+        if(commaIdx >= 0) resolve(result.slice(commaIdx+1));
+        else resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // === MPC direct recording ===
+  // Use MediaRecorder on the user's microphone to capture audio and assign
+  // the recording to the first MPC pad.  Toggling the button starts or
+  // stops recording.  When stopped, the recorded audio is decoded and
+  // assigned to pad 0, and the pad is marked as containing a sample.
+  let mpcRecording = false;
+  let mpcRecMedia = null;
+  let mpcRecChunks = [];
+  if (mpcRecordBtn) {
+    mpcRecordBtn.onclick = async () => {
+      if (mpcRecording) {
+        // Stop an active recording
+        mpcRecording = false;
+        mpcRecordBtn.textContent = 'Record to MPC Sampler';
+        try{
+          if (mpcRecMedia) mpcRecMedia.stop();
+        }catch(e){}
+      } else {
+        // Request microphone access and begin recording
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mpcRecChunks = [];
+          mpcRecMedia = new MediaRecorder(stream);
+          mpcRecMedia.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) mpcRecChunks.push(e.data);
+          };
+          mpcRecMedia.onstop = async () => {
+            // Assemble recorded chunks into a single Blob and decode
+            const blob = new Blob(mpcRecChunks, { type: (mpcRecMedia && mpcRecMedia.mimeType) || 'audio/webm' });
+            mpcRecChunks = [];
+            const arrayBuf = await blob.arrayBuffer();
+            try{
+              const audioBuf = await ctx.decodeAudioData(arrayBuf);
+              const idx = 0;
+              if (mpcPads && mpcPads[idx]) {
+                const pad = mpcPads[idx];
+                pad.buffer = audioBuf;
+                pad.start = 0;
+                pad.end = 1;
+                pad.pitch = 0;
+                pad.attack = 0;
+                pad.decay = 0.1;
+                if (pad.el) {
+                  pad.el.classList.add('hasSample');
+                  ensureDelBtnForPad(idx);
+                }
+                // Automatically select the first pad so parameters reflect the new recording
+                selectedMpcIdx = idx;
+                refreshMpcSelection();
+              }
+            } catch(err){
+              console.error('Error decoding recorded audio', err);
+            }
+          };
+          mpcRecMedia.start();
+          mpcRecording = true;
+          mpcRecordBtn.textContent = 'Stop Recording';
+        }catch(err){
+          alert('Unable to access microphone: ' + err.message);
+        }
+      }
+    };
+  }
+
+  // === MPC pad persistence: save to and load from JSON ===
+  if (mpcSaveBtn) {
+    mpcSaveBtn.onclick = async () => {
+      const padsData = [];
+      for (let i = 0; i < mpcPads.length; i++) {
+        const pad = mpcPads[i];
+        if (pad && pad.buffer) {
+          // Encode the AudioBuffer to WAV and then to base64
+          const left = pad.buffer.getChannelData(0);
+          const right = (pad.buffer.numberOfChannels > 1) ? pad.buffer.getChannelData(1) : pad.buffer.getChannelData(0);
+          const wavBlob = encodeWAV([left, right], pad.buffer.sampleRate);
+          const base64 = await blobToBase64(wavBlob);
+          padsData[i] = {
+            data: base64,
+            sampleRate: pad.buffer.sampleRate,
+            start: pad.start,
+            end: pad.end,
+            pitch: pad.pitch,
+            attack: pad.attack,
+            decay: pad.decay
+          };
+        } else {
+          padsData[i] = null;
+        }
+      }
+      const json = JSON.stringify({ pads: padsData });
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mpcPads.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  }
+
+  if (mpcLoadBtn && mpcLoadFile) {
+    mpcLoadBtn.onclick = () => {
+      // Reset file input and trigger file chooser
+      mpcLoadFile.value = '';
+      mpcLoadFile.click();
+    };
+    mpcLoadFile.onchange = () => {
+      const file = mpcLoadFile.files && mpcLoadFile.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try{
+          const data = JSON.parse(e.target.result);
+          if (Array.isArray(data.pads)) {
+            for (let i = 0; i < mpcPads.length; i++) {
+              const padData = data.pads[i];
+              const pad = mpcPads[i];
+              if (padData && padData.data) {
+                // Decode base64 into ArrayBuffer
+                const byteString = atob(padData.data);
+                const len = byteString.length;
+                const buf = new Uint8Array(len);
+                for (let j = 0; j < len; j++) buf[j] = byteString.charCodeAt(j);
+                const arrayBuf = buf.buffer;
+                try{
+                  const audioBuf = await ctx.decodeAudioData(arrayBuf);
+                  pad.buffer = audioBuf;
+                  pad.start = padData.start || 0;
+                  pad.end = (padData.end != null ? padData.end : 1);
+                  pad.pitch = padData.pitch || 0;
+                  pad.attack = padData.attack || 0;
+                  pad.decay = (padData.decay != null ? padData.decay : 0.1);
+                  pad.el.classList.add('hasSample');
+                  ensureDelBtnForPad(i);
+                } catch(err){
+                  console.error('Error decoding pad', i, err);
+                }
+              } else {
+                // Clear pad if no data
+                pad.buffer = null;
+                pad.start = 0;
+                pad.end = 1;
+                pad.pitch = 0;
+                pad.attack = 0;
+                pad.decay = 0.1;
+                pad.el.classList.remove('hasSample');
+                const del = pad.el.querySelector('.delBtn');
+                if (del) del.remove();
+              }
+            }
+            // Reset selection to none and refresh UI
+            selectedMpcIdx = -1;
+            refreshMpcSelection();
+          }
+        } catch(err){
+          alert('Failed to load MPC pads: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+  }
 
   // ===== Drum Rack Implementation =====
   // Array to hold pad objects: {el, sampleFunc, buffer, accent, label}
