@@ -116,6 +116,16 @@
   .drumRackPad.accent{box-shadow:0 0 0 2px var(--accent) inset}
   .drumRackPad small{display:block;color:var(--muted);font-size:11px}
 
+  /* === Additional instrument group styling === */
+  .instrGroup{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+  .noteGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:6px}
+  .noteBtn{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:8px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
+  .noteBtn:active{transform:scale(0.96)}
+  .mpcGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+  .mpcPad{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:20px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
+  .mpcPad.selected{outline:2px solid var(--accent)}
+  .mpcPad:active{transform:scale(0.96)}
+
 </style>
 </head>
 <body>
@@ -277,6 +287,57 @@
         <div class="control"><label>Saturation</label><input id="macro3" type="range" min="0" max="1" step="0.01" value="0"></div>
         <div class="control"><label>Delay</label><input id="macro4" type="range" min="0" max="1" step="0.01" value="0.2"></div>
       </div>
+
+    <!-- === New Instruments Section under Macros === -->
+    <div class="instrGroup" id="bass303Section">
+      <div class="drumHead">Bass 303</div>
+      <div class="row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="control"><label>Slide Time</label><input id="bassSlide" type="range" min="0" max="0.4" step="0.01" value="0.1" title="Portamento time (s)"></div>
+        <div class="control"><label>Accent Level</label><input id="bassAccent" type="range" min="0" max="1" step="0.01" value="0.7" title="Accent intensity"></div>
+        <div class="control"><label>Resonance</label><input id="bassResonance" type="range" min="0.1" max="20" step="0.1" value="8" title="Filter resonance"></div>
+        <div class="control"><label>Volume</label><input id="bassVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Bass 303 volume"></div>
+      </div>
+      <div class="noteGrid" id="bassNoteGrid"></div>
+    </div>
+
+    <div class="instrGroup" id="waveSection">
+      <div class="drumHead">Wavetable Lite</div>
+      <div class="row" style="grid-template-columns:repeat(3,1fr)">
+        <div class="control"><label>Morph</label><input id="waveMorph" type="range" min="0" max="1" step="0.01" value="0" title="Morph between 8 wavetables"></div>
+        <div class="control"><label>Volume</label><input id="waveVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Wavetable volume"></div>
+        <div class="control"><label>Wave Hold</label><input id="waveHold" type="checkbox" title="Hold note until new key"></div>
+      </div>
+      <div class="noteGrid" id="waveNoteGrid"></div>
+    </div>
+
+    <div class="instrGroup" id="granularSection">
+      <div class="drumHead">Granular Pad</div>
+      <div class="row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="control"><label>Load Sample</label><input id="granLoad" type="file" accept="audio/*"></div>
+        <div class="control"><label>Grain Size</label><input id="granSize" type="range" min="0.02" max="0.5" step="0.01" value="0.1" title="Grain size (s)"></div>
+        <div class="control"><label>Spacing</label><input id="granSpace" type="range" min="0.02" max="0.5" step="0.01" value="0.05" title="Time between grains (s)"></div>
+        <div class="control"><label>Volume</label><input id="granVol" type="range" min="0" max="1" step="0.01" value="0.5" title="Granular pad volume"></div>
+      </div>
+      <div class="row" style="grid-template-columns:1fr">
+        <button class="btn" id="granPlay" title="Play granular texture">Play Pad</button>
+      </div>
+    </div>
+
+    <div class="instrGroup" id="mpcSection">
+      <div class="drumHead">MPC Sampler</div>
+      <div class="mpcGrid" id="mpcGrid"></div>
+      <div class="row" style="grid-template-columns:repeat(5,1fr); margin-top:6px">
+        <div class="control"><label>Start</label><input id="mpcStart" type="range" min="0" max="1" step="0.01" value="0"></div>
+        <div class="control"><label>End</label><input id="mpcEnd" type="range" min="0" max="1" step="0.01" value="1"></div>
+        <div class="control"><label>Pitch (semitones)</label><input id="mpcPitch" type="range" min="-12" max="12" step="1" value="0"></div>
+        <div class="control"><label>Attack</label><input id="mpcAttack" type="range" min="0" max="0.5" step="0.01" value="0"></div>
+        <div class="control"><label>Decay</label><input id="mpcDecay" type="range" min="0" max="0.5" step="0.01" value="0.1"></div>
+      </div>
+      <div class="row" style="grid-template-columns:repeat(2,1fr); margin-top:6px">
+        <div class="control"><label>Load Sample</label><input id="mpcLoad" type="file" accept="audio/*"></div>
+        <div class="control"><label>Volume</label><input id="mpcVol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
+      </div>
+    </div>
     </div>
 </div>
   </div>
@@ -595,6 +656,306 @@
   [macro1,macro2,macro3,macro4].forEach(el=>{ if(el) el.addEventListener('input', updateMacros); });
   // Initialize macros once DOM is ready
   setTimeout(updateMacros, 0);
+
+  /* ---------------------------------------------------------------------
+   * Custom Instrument Modules
+   * The following modules implement additional instruments beyond the
+   * existing macros and drum rack.  Each module is fully self-contained
+   * and relies only on the global AudioContext `ctx`, the master mix bus
+   * `mix`, and the helper functions defined elsewhere (e.g. mtof).
+   * They are initialized once when the app starts and do not interfere
+   * with the main sequencer.  Their UI is defined in the macrosPanel.
+   * Modules included:
+   *  - Bass 303 acid synth with slide, accent and resonance controls.
+   *  - Wavetable-lite synth with morphable shapes and hold mode.
+   *  - Granular pad sampler with adjustable grain size and spacing.
+   *  - MPC-style sampler with 16 pads, per-pad trimming, pitch and envelope.
+   * ------------------------------------------------------------------- */
+
+  // ---- References to custom instrument UI elements ----
+  const bassSlide = document.getElementById('bassSlide');
+  const bassAccent = document.getElementById('bassAccent');
+  const bassResonance = document.getElementById('bassResonance');
+  const bassVol = document.getElementById('bassVol');
+  const bassNoteGrid = document.getElementById('bassNoteGrid');
+  const waveMorph = document.getElementById('waveMorph');
+  const waveVol = document.getElementById('waveVol');
+  const waveHold = document.getElementById('waveHold');
+  const waveNoteGrid = document.getElementById('waveNoteGrid');
+  const granLoad = document.getElementById('granLoad');
+  const granSize = document.getElementById('granSize');
+  const granSpace = document.getElementById('granSpace');
+  const granVol = document.getElementById('granVol');
+  const granPlayBtn = document.getElementById('granPlay');
+  const mpcGrid = document.getElementById('mpcGrid');
+  const mpcStart = document.getElementById('mpcStart');
+  const mpcEnd = document.getElementById('mpcEnd');
+  const mpcPitch = document.getElementById('mpcPitch');
+  const mpcAttack = document.getElementById('mpcAttack');
+  const mpcDecay = document.getElementById('mpcDecay');
+  const mpcLoad = document.getElementById('mpcLoad');
+  const mpcVol = document.getElementById('mpcVol');
+
+  // ---- Bass 303 Module ----
+  const bassNoteNames = ['C2','D2','E2','F2','G2','A2','B2','C3'];
+  const bassNotes = [36,38,40,41,43,45,47,48];
+  let bassLastFreq = null;
+  function initBassNoteGrid(){
+    if(!bassNoteGrid) return;
+    bassNoteGrid.innerHTML = '';
+    bassNoteNames.forEach((name,idx)=>{
+      const btn = document.createElement('div');
+      btn.className = 'noteBtn';
+      btn.textContent = name;
+      btn.onmousedown = (e)=>{
+        const midi = bassNotes[idx];
+        const freq = mtof(midi);
+        const accentVal = parseFloat(bassAccent?.value||0.7);
+        const acc = (e.altKey || e.metaKey) ? accentVal : 0;
+        playBass303(freq, acc);
+      };
+      bassNoteGrid.appendChild(btn);
+    });
+  }
+  function playBass303(freq, accentAmp=0){
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    const res = parseFloat(bassResonance?.value||8);
+    filter.Q.value = res;
+    const cutoffBase = 200 + accentAmp * 800;
+    filter.frequency.setValueAtTime(cutoffBase, ctx.currentTime);
+    const amp = ctx.createGain();
+    const vol = parseFloat(bassVol?.value||0.6);
+    amp.gain.setValueAtTime(0, ctx.currentTime);
+    amp.gain.linearRampToValueAtTime(vol * (1 + accentAmp*0.5), ctx.currentTime + 0.02);
+    amp.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+    osc.connect(filter);
+    filter.connect(amp);
+    amp.connect(mix);
+    const slideTime = parseFloat(bassSlide?.value||0.1);
+    if(bassLastFreq != null){
+      osc.frequency.setValueAtTime(bassLastFreq, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(freq, ctx.currentTime + slideTime);
+    } else {
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    }
+    bassLastFreq = freq;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    setTimeout(()=>{ bassLastFreq = null; }, 800);
+  }
+  initBassNoteGrid();
+
+  // ---- Wavetable Lite Module ----
+  const waveTables = [];
+  function buildWavetable(shape){
+    const size = 64;
+    const real = new Float32Array(size);
+    const imag = new Float32Array(size);
+    for(let i=1;i<size;i++){
+      switch(shape){
+        case 'sine': imag[i] = (i===1) ? 1 : 0; break;
+        case 'square': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) : 0; break;
+        case 'saw': imag[i] = 2/(i*Math.PI) * (i % 2 === 1 ? 1 : -1); break;
+        case 'triangle': imag[i] = (i % 2 === 1) ? (8/(Math.PI*Math.PI) / (i*i)) * ((i % 4 === 1) ? 1 : -1) : 0; break;
+        case 'sawdown': imag[i] = -2/(i*Math.PI); break;
+        case 'pulse50': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) : 0; break;
+        case 'pulse25': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) * ((i % 4 === 1) ? 1 : -1) : 0; break;
+        default: imag[i] = (i===1) ? 1 : 0; break;
+      }
+    }
+    return ctx.createPeriodicWave(real, imag, {disableNormalization:true});
+  }
+  ['sine','square','saw','triangle','sawdown','pulse50','pulse25','sine'].forEach(shape=>{
+    waveTables.push(buildWavetable(shape));
+  });
+  let waveHoldNote = null;
+  function initWaveNoteGrid(){
+    if(!waveNoteGrid) return;
+    waveNoteGrid.innerHTML = '';
+    const noteNames = ['C3','D3','E3','F3','G3','A3','B3','C4'];
+    const midiVals = [48,50,52,53,55,57,59,60];
+    noteNames.forEach((name,i)=>{
+      const btn = document.createElement('div');
+      btn.className = 'noteBtn';
+      btn.textContent = name;
+      btn.onmousedown = ()=>{
+        const freq = mtof(midiVals[i]);
+        playWavetable(freq);
+      };
+      waveNoteGrid.appendChild(btn);
+    });
+  }
+  function playWavetable(freq){
+    const osc = ctx.createOscillator();
+    const vol = parseFloat(waveVol?.value||0.6);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.02);
+    if(!(waveHold?.checked)){
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
+    }
+    let idx = 0;
+    if(waveMorph){
+      const val = parseFloat(waveMorph.value||0);
+      idx = Math.min(waveTables.length-1, Math.round(val * (waveTables.length-1)));
+    }
+    osc.setPeriodicWave(waveTables[idx]);
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.connect(gain);
+    gain.connect(mix);
+    if(waveHold?.checked){
+      if(waveHoldNote){
+        waveHoldNote.osc.stop();
+        waveHoldNote.gain.disconnect();
+      }
+      waveHoldNote = {osc, gain};
+      osc.start();
+    } else {
+      osc.start();
+      osc.stop(ctx.currentTime + 0.8);
+    }
+  }
+  initWaveNoteGrid();
+
+  // ---- Granular Pad Module ----
+  let granBuffer = null;
+  const granGain = ctx.createGain();
+  granGain.gain.value = parseFloat(granVol?.value||0.5);
+  granGain.connect(mix);
+  if(granVol) granVol.addEventListener('input', ()=>{ granGain.gain.value = parseFloat(granVol.value||0.5); });
+  if(granLoad){
+    granLoad.addEventListener('change', ()=>{
+      const file = granLoad.files[0];
+      if(file){
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          ctx.decodeAudioData(reader.result).then(buf=>{ granBuffer = buf; });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+  }
+  function playGranular(){
+    if(!granBuffer) return;
+    const size = parseFloat(granSize?.value||0.1);
+    const space = parseFloat(granSpace?.value||0.05);
+    const now = ctx.currentTime;
+    const grainCount = Math.floor(0.8 / space);
+    for(let i=0;i<grainCount;i++){
+      const src = ctx.createBufferSource();
+      src.buffer = granBuffer;
+      const start = Math.random() * Math.max(0, granBuffer.duration - size);
+      src.start(now + i*space, start, size);
+      src.connect(granGain);
+    }
+  }
+  if(granPlayBtn){ granPlayBtn.onclick = ()=>{ playGranular(); }; }
+
+  // ---- MPC Sampler Module ----
+  const mpcPads = [];
+  let selectedMpcIdx = -1;
+  function initMpc(){
+    if(!mpcGrid) return;
+    mpcGrid.innerHTML = '';
+    mpcPads.length = 0;
+    for(let i=0;i<16;i++){
+      const pad = { buffer:null, start:0, end:1, pitch:0, attack:0, decay:0.1, el:null };
+      const el = document.createElement('div');
+      el.className = 'mpcPad';
+      el.textContent = i+1;
+      pad.el = el;
+      el.onmousedown = ()=>{
+        selectedMpcIdx = i;
+        refreshMpcSelection();
+        playMpcPad(i);
+      };
+      el.ondragover = (ev)=>{ ev.preventDefault(); ev.dataTransfer.dropEffect='copy'; el.style.filter='brightness(1.2)'; };
+      el.ondragleave = ()=>{ el.style.filter=''; };
+      el.ondrop = (ev)=>{
+        ev.preventDefault(); el.style.filter='';
+        const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if(file) loadSampleToMpcPad(file,i);
+      };
+      mpcPads.push(pad);
+      mpcGrid.appendChild(el);
+    }
+  }
+  function refreshMpcSelection(){
+    mpcPads.forEach((p,idx)=>{
+      p.el.classList.toggle('selected', idx===selectedMpcIdx);
+    });
+    const pad = mpcPads[selectedMpcIdx]||null;
+    if(pad){
+      if(mpcStart) mpcStart.value = pad.start;
+      if(mpcEnd) mpcEnd.value = pad.end;
+      if(mpcPitch) mpcPitch.value = pad.pitch;
+      if(mpcAttack) mpcAttack.value = pad.attack;
+      if(mpcDecay) mpcDecay.value = pad.decay;
+    }
+  }
+  function loadSampleToMpcPad(file, idx){
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      ctx.decodeAudioData(reader.result).then(buf=>{
+        const pad = mpcPads[idx];
+        pad.buffer = buf;
+        pad.start = 0;
+        pad.end = 1;
+        pad.pitch = 0;
+        pad.attack = 0;
+        pad.decay = 0.1;
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function playMpcPad(idx){
+    const pad = mpcPads[idx];
+    if(!pad || !pad.buffer) return;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = pad.buffer;
+    const rate = Math.pow(2, (pad.pitch||0) / 12);
+    src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    const baseVol = parseFloat(mpcVol?.value||0.6);
+    g.gain.setValueAtTime(0, now);
+    const segDur = Math.max(0.01, (pad.end - pad.start) * pad.buffer.duration / rate);
+    const atk = pad.attack||0;
+    const dec = pad.decay||0.1;
+    g.gain.linearRampToValueAtTime(baseVol, now + atk);
+    g.gain.linearRampToValueAtTime(0, now + atk + Math.min(dec, segDur));
+    src.connect(g); g.connect(mix);
+    src.start(now, pad.start * pad.buffer.duration, (pad.end - pad.start) * pad.buffer.duration / rate);
+  }
+  if(mpcStart) mpcStart.addEventListener('input', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0){ const pad = mpcPads[idx]; const v = parseFloat(mpcStart.value||0); pad.start = Math.min(Math.max(0, v), pad.end - 0.01); }
+  });
+  if(mpcEnd) mpcEnd.addEventListener('input', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0){ const pad = mpcPads[idx]; const v = parseFloat(mpcEnd.value||1); pad.end = Math.max(Math.min(1, v), pad.start + 0.01); }
+  });
+  if(mpcPitch) mpcPitch.addEventListener('input', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0) mpcPads[idx].pitch = parseFloat(mpcPitch.value||0);
+  });
+  if(mpcAttack) mpcAttack.addEventListener('input', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0) mpcPads[idx].attack = parseFloat(mpcAttack.value||0);
+  });
+  if(mpcDecay) mpcDecay.addEventListener('input', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0) mpcPads[idx].decay = parseFloat(mpcDecay.value||0.1);
+  });
+  if(mpcVol) mpcVol.addEventListener('input', ()=>{ /* volume used on playback */ });
+  if(mpcLoad) mpcLoad.addEventListener('change', ()=>{
+    const idx = selectedMpcIdx;
+    if(idx>=0 && mpcLoad.files && mpcLoad.files[0]) loadSampleToMpcPad(mpcLoad.files[0], idx);
+  });
+  initMpc();
 
   // ===== Drum Rack Implementation =====
   // Array to hold pad objects: {el, sampleFunc, buffer, accent, label}
