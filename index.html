@@ -427,8 +427,18 @@
   lfo.frequency.value = 0.5;
   lfoGain.gain.value = 0;
   lfo.connect(lfoGain);
-  lfoGain.connect(vcf.frequency);
   lfo.start();
+  let lfoConnected = false;
+  function updateLfoRouting(){
+    const should = lfoGain.gain.value !== 0;
+    if(should && !lfoConnected){
+      lfoGain.connect(vcf.frequency);
+      lfoConnected = true;
+    } else if(!should && lfoConnected){
+      lfoGain.disconnect();
+      lfoConnected = false;
+    }
+  }
   // Global chorus parameters (applied in voice()). Use distinct names to avoid clashing with DOM ids
   let chorusRateVal = 5;
   let chorusWidthVal = 3;
@@ -1773,6 +1783,11 @@
     drawTimeline(globalStep % DRUM_STEPS);
     // Also update the arrangement playhead visually
     updateArrPlayhead();
+    lfoGain.gain.setValueAtTime(0, ctx.currentTime);
+    updateLfoRouting();
+    vcf.frequency.cancelScheduledValues(ctx.currentTime);
+    vcf.frequency.setValueAtTime(+flt.value, ctx.currentTime);
+    vcf.Q.cancelScheduledValues(ctx.currentTime);
   };
   reset.onclick=()=>{
     // Reset sequence to the start of the arrangement
@@ -1788,6 +1803,11 @@
     updateArrPlayhead();
     mix.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
     setTimeout(() => mix.gain.setTargetAtTime(0.9, ctx.currentTime, 0.03), 120);
+    lfoGain.gain.setValueAtTime(0, ctx.currentTime);
+    updateLfoRouting();
+    vcf.frequency.cancelScheduledValues(ctx.currentTime);
+    vcf.frequency.setValueAtTime(+flt.value, ctx.currentTime);
+    vcf.Q.cancelScheduledValues(ctx.currentTime);
   };
 
   // FX controls
@@ -1823,6 +1843,7 @@
   lfoDepth.oninput = () => {
     const val = +lfoDepth.value;
     lfoGain.gain.setTargetAtTime(val, ctx.currentTime, 0.02);
+    updateLfoRouting();
   };
   // LFO shape selects oscillator waveform
   lfoShape.oninput = () => {
@@ -2685,8 +2706,9 @@
       const idx = cc - 70;
       const macroEl = [macro1, macro2, macro3, macro4][idx];
       if(macroEl){ macroEl.value = normalized; updateMacros(); }
-    } else if(cc === 1){
+     } else if(cc === 1){
       lfoGain.gain.value = normalized * 1000;
+      updateLfoRouting();
     } else if(cc === 7){
       synthVol.gain.value = normalized;
     } else if(cc >= 74 && cc <= 77){
@@ -2709,3 +2731,4 @@
 </script>
 </body>
 </html>
+
