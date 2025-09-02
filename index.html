@@ -2020,6 +2020,8 @@
   const clipLength = DRUM_STEPS;
   // Continuous step counter for arrangement playback
   let globalStep = 0;
+  // Total steps in current arrangement; ensures looping playback
+  let arrangementLength = clipLength; 
   // Define tracks: synth and drums.  Each track has a name, type, color and list of clips
   const tracks = [
     { name: 'Synth', type: 'synth', color: '#4478e2', clips: [{ start: 0 }] },
@@ -2044,6 +2046,8 @@
         if (clip.start + clipLength > maxStep) maxStep = clip.start + clipLength;
       });
     });
+    // Update total arrangement length for looping
+    arrangementLength = maxStep;
     // Set container width
     arrangementTracksEl.style.width = (maxStep * stepWidth) + 'px';
     // Clear existing content
@@ -2731,4 +2735,5 @@
 </script>
 </body>
 </html>
+
 
