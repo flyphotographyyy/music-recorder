@@ -3,12 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Stable Music Studio — Timeline (User-Action Recording)</title>
+<title>Sequencer + ARP (Chords) + Arranger — no overdub on loop</title>
 <style>
   :root{
     --bg:#0b0f14; --panel:#121926; --panel-2:#0f1623; --text:#e7eef7; --muted:#8aa0b7;
-    --accent:#4cc9f0; --red:#ff3b30; --grid:#1c2535; --splitter:#1a263b;
-    --uiScale: 1;
+    --accent:#4cc9f0; --red:#ff3b30; --grid:#1c2535; --blue:#4db2ff;
   }
   *{box-sizing:border-box}
   body{margin:0;background:linear-gradient(160deg,#0b0f14,#0a0d12);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
@@ -26,365 +25,182 @@
   .row{display:flex;gap:10px;flex-wrap:wrap;padding:12px}
   .panel{background:var(--panel);border:1px solid #162033;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden}
   .panel h2{font-size:13px;margin:0;padding:10px 12px;border-bottom:1px solid #17253a;background:linear-gradient(180deg,#121b2a,#0f1827);color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
-  .kbd{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1726;border:1px solid #1c2a42;border-radius:6px;padding:2px 6px;color:#a9c0db}
-  .footer{padding:10px 14px;color:#7c8ea6;border-top:1px solid #17253a;font-size:12px;background:linear-gradient(180deg,#101724,#0e1623)}
 
-  .scale-wrap{ transform: scale(var(--uiScale)); transform-origin: top left; transition: transform .08s ease-out; }
+  .layout{ display:grid; grid-template-columns: 1fr; gap:14px; padding:14px; }
 
-  /* layout + splitter */
-  .layout{ display:grid; grid-template-columns: var(--left,1.15fr) 6px var(--right,.85fr); gap:14px; padding:14px; }
-  #splitter{ background:linear-gradient(180deg,#0f1624,#0e1522); border:1px solid var(--splitter); border-radius:10px; cursor:col-resize; position:relative; }
-  #splitter:before{ content:""; position:absolute; left:50%; top:12px; bottom:12px; width:2px; transform:translateX(-50%); background:linear-gradient(180deg,#23324a,#1a253b); border-radius:2px; opacity:.7; }
-
-  @media (max-width: 980px){
-    .layout{ grid-template-columns:1fr; gap:12px; padding:12px; }
-    #splitter{ display:none; }
-  }
-
-  /* Timeline/Sequencer */
+  /* Timeline */
   .timeline{padding:12px;display:grid;gap:10px}
   .timeline-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 12px 4px}
+  .timeline-toolbar .badge{border-radius:8px}
   .barLabels{display:flex;justify-content:space-between;font-size:11px;color:#7e91a9;padding:0 4px}
-  .steps{display:grid;gap:8px;position:relative;background:var(--panel-2);padding:10px;border-radius:12px;border:1px solid #1a263b}
+  .steps{display:grid;gap:8px;position:relative;background:var(--panel-2);padding:10px;border-radius:12px;border:1px solid #1a263b;grid-template-columns:repeat(8,1fr)}
   .step{aspect-ratio:1.6/1;border-radius:10px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer;user-select:none;transition:all .15s}
   .step.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
   .playhead{position:absolute;top:8px;bottom:8px;width:3px;background:var(--red);border-radius:2px;box-shadow:0 0 6px rgba(255,59,48,.8);transform:translateX(-1px);pointer-events:none}
-  .gridline{position:absolute;top:8px;bottom:8px;width:1px;background:#1e2a3d;opacity:.7}
+
   .laneTitle{font-size:12px;color:#96a8c0;margin-top:2px}
   .lane{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
   .lane .name{color:#9fb3cd;font-size:12px;text-align:right;padding-right:6px}
-  .lane .cells{display:grid;gap:8px}
+  .lane .cells{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
   .cell{aspect-ratio:1.6/1;border-radius:8px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer}
   .cell.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
   .noteRow{display:grid;gap:8px;grid-template-columns:120px 1fr}
   .noteRow .name{color:#9fb3cd;text-align:right;padding-right:6px}
-  .noteRow .selects{display:grid;gap:8px}
+  .noteRow .selects{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
 
   /* Arranger */
   .arranger{padding:12px;border-top:1px solid #17253a;background:linear-gradient(0deg,#0e1624,#0f1a2a)}
   .arr-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
   .arr-toolbar .len{font-size:12px;color:var(--muted)}
-  .arr-wrap{position:relative;border:1px solid #1a263b;border-radius:12px;background:var(--panel-2);height:210px;overflow:hidden}
+  .arr-wrap{position:relative;border:1px solid #1a263b;border-radius:12px;background:var(--panel-2);height:220px;overflow:hidden}
   .arr-axis{position:absolute;left:0;right:0;top:0;height:18px;color:#7e91a9;font-size:10px;padding:2px 6px;display:flex;gap:12px;align-items:center}
   .arr-track{position:absolute;left:0;right:0;top:18px;bottom:0}
-  .arr-event{position:absolute;height:18px;border:1px solid #2a4270;border-radius:6px;background:linear-gradient(180deg,#163055,#102137);color:#cfe6ff;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none}
+  .arr-event{position:absolute;height:18px;border:1px solid #2a4270;border-radius:6px;background:linear-gradient(180deg,#163055,#102137);color:#cfe6ff;font-size:10px;display:flex;align-items:center;justify-content:center;user-select:none}
   .arr-event.note{background:linear-gradient(180deg,#1a3a66,#11253d)}
-  .arr-event.bass303{background:linear-gradient(180deg,#664a1a,#3d2a11)}
-  .arr-event.wt{background:linear-gradient(180deg,#3a1a66,#24113d)}
-  .arr-event.drums{background:linear-gradient(180deg,#1a663d,#113d25)}
-  .arr-event.pad{background:linear-gradient(180deg,#66401a,#3d2711)}
   .arr-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--red);box-shadow:0 0 6px rgba(255,59,48,.8);pointer-events:none}
-  .arr-limit{position:absolute;top:0;bottom:0;width:2px;background:#2b84c8;box-shadow:0 0 6px rgba(76,201,240,.8);cursor:ew-resize}
+  .arr-limit{position:absolute;top:0;bottom:0;width:3px;background:var(--blue);box-shadow:0 0 6px rgba(77,178,255,.9);cursor:ew-resize}
   .laneLabel{position:absolute;left:6px;font-size:10px;color:#97a8c0;opacity:.9}
   .laneGrid{position:absolute;left:0;right:0;height:18px;border-bottom:1px solid #1b2a40}
   .inline-help{font-size:12px;color:#8aa0b7;padding:0 12px 10px}
 
-  /* Drum / Pads */
-  #drumGrid{ display:grid;grid-template-columns: 100px repeat(16, 1fr);gap:6px;padding:8px;background:var(--panel-2);border-radius:12px;border:1px solid #1a263b; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .pads{ display:grid;grid-template-columns: repeat(4, 1fr);gap:10px;padding:10px; min-width:360px; }
-  .pad-tools{ display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px 10px }
-
-  /* Responsive */
-  header{ flex-wrap: wrap; }
-  .badge{ margin-top: 4px; }
-  .row{ row-gap: 10px; }
-  .control{ flex: 1 1 220px; min-width: 160px; }
-  @media (max-width:980px){
-    .panel h2{ font-size:12px; padding:8px 10px; }
-    .arr-wrap{ height: 180px; }
-    body[data-page="timeline"] .right-panel{ display:none !important; }
-    body[data-page="timeline"] .left-panel .arranger{ display:none !important; }
-    body[data-page="arranger"] .right-panel{ display:none !important; }
-    body[data-page="arranger"] .left-panel > *:not(.arranger){ display:none !important; }
-    body[data-page="drums"] .left-panel{ display:none !important; }
-    body[data-page="drums"] .right-panel{ display:block !important; }
-    .steps .step, .lane .cells .cell{ height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
-    .lane{ grid-template-columns:72px 1fr !important; }
-    .noteRow{ grid-template-columns:72px 1fr !important; }
-    #drumGrid > div{ min-height:44px !important; }
-    .pads{ grid-template-columns: repeat(4, 1fr) !important; gap:10px !important; }
-  }
-  @media (max-width:450px){
-    .pads{ grid-template-columns: repeat(2, 1fr) !important; }
-    .steps .step, .lane .cells .cell{ height:38px !important; min-height:38px !important; }
-  }
-
-  /* Tabs + mobile nav */
-  .top-tabs{ display:none; gap:8px; padding:8px 12px; border-bottom:1px solid #152238; background:rgba(10,15,22,.6); position:sticky; top:56px; z-index:7; }
-  .top-tabs button{ appearance:none; border:1px solid #1c2a40; background:linear-gradient(180deg,#152032,#0f1827); color:#9fb3cd; border-radius:10px; padding:6px 10px; font-size:12px; }
-  .top-tabs button.active{ color:#e7eef7; background:#132033; }
-  @media (max-width:980px){ .top-tabs{ display:flex; } header{ position:sticky; top:0; z-index:8; } }
-  .mobile-nav{ position:fixed; left:0; right:0; bottom:0; height:56px; background:rgba(10,15,22,.96); border-top:1px solid #152238; display:flex; align-items:center; justify-content:space-around; padding-bottom: env(safe-area-inset-bottom); z-index:999; }
-  .mobile-nav button{ appearance:none; background:none; border:none; color:#9fb3cd; font-size:12px; padding:6px 8px; border-radius:10px; }
-  .mobile-nav button.active{ color:#e7eef7; background:#132033; }
-
-  /* Диагонален ресайзер */
-  #diagSizer{ position: fixed; right: 8px; bottom: 64px; width: 18px; height: 18px; cursor: nwse-resize;
-    background: linear-gradient(135deg, transparent 50%, #2b84c8 50%) left/100% 100% no-repeat, linear-gradient(180deg,#0e1726,#0b1422);
-    border:1px solid #254064; border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,.25); z-index:1000; }
+  /* ARP + NR line */
+  .arp-line{display:grid;grid-template-columns:80px 1fr 1fr 1fr 1fr;gap:8px;align-items:end;padding:0 12px 6px}
+  .arp-line .grp{display:flex;flex-direction:column;gap:6px}
+  .arp-line label{font-size:12px;color:#8aa0b7}
 </style>
 </head>
-<body data-page="studio">
+<body>
 <header>
-  <h1>Stable Music Studio</h1>
-  <span class="badge">Arranger: end = blue line</span>
-  <span class="badge">Recording = YOUR actions only</span>
+  <h1>Sequencer + ARP (Chords) + Arranger</h1>
+  <span class="badge">End line = song end</span>
+  <span class="badge">No overdub on loop</span>
 </header>
 
-<div class="top-tabs" role="navigation" aria-label="Page tabs (mobile)">
-  <button data-page="studio" id="tabStudio">Studio</button>
-  <button data-page="timeline" id="tabTimeline">Timeline</button>
-  <button data-page="arranger" id="tabArranger">Arranger</button>
-  <button data-page="drums" id="tabDrums">Drums</button>
-</div>
+<main class="layout">
+  <section class="panel">
+    <h2>Timeline &amp; Transport</h2>
 
-<div class="scale-wrap" id="scaleWrap">
-  <main class="layout" id="layout">
-    <!-- Left -->
-    <section class="panel left-panel">
-      <h2>Timeline &amp; Transport</h2>
+    <div class="row">
+      <button id="startBtn" class="btn primary">Start</button>
+      <button id="stopBtn" class="btn danger">Stop</button>
 
-      <div class="row">
-        <button id="startBtn" class="btn primary">Start</button>
-        <button id="stopBtn" class="btn danger">Stop</button>
+      <div class="control">
+        <label for="bpm">BPM</label>
+        <input type="range" id="bpm" min="60" max="200" step="1" value="120" />
+        <div><span id="bpmVal">120</span> bpm</div>
+      </div>
+    </div>
 
-        <div class="control">
-          <label for="bpm">BPM</label>
-          <input type="range" id="bpm" min="60" max="200" step="1" value="120" />
-          <div><span id="bpmVal">120</span> bpm</div>
+    <div class="timeline">
+      <!-- ARP (само за Chords) + Note Repeat -->
+      <div class="arp-line" id="arpLine">
+        <div class="grp">
+          <label><input type="checkbox" id="arpOn"> Arp On</label>
         </div>
-
-        <div class="control">
-          <label>Arm TL Rec</label>
-          <div class="switch">
-            <input type="checkbox" id="armTl" />
-            <label for="armTl">Record to Arranger</label>
-          </div>
+        <div class="grp">
+          <label for="arpRate">Arp Rate</label>
+          <select id="arpRate">
+            <option>1/4</option><option selected>1/8</option><option>1/16</option><option>1/32</option>
+          </select>
         </div>
-
-        <div class="control">
-          <label>Сесия</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button id="saveSettings" class="btn">💾 Запази настройки</button>
-            <button id="resetSettings" class="btn danger">🗑️ Изчисти настройки</button>
-          </div>
-          <small style="color:#8aa0b7">Авто-запазване: Включено</small>
+        <div class="grp">
+          <label for="arpDir">Arp Dir</label>
+          <select id="arpDir">
+            <option selected>Up</option><option>Down</option><option>UpDown</option><option>Random</option>
+          </select>
+        </div>
+        <div class="grp">
+          <label for="arpOct">Arp Oct</label>
+          <select id="arpOct">
+            <option selected>×1</option><option>×2</option><option>×3</option>
+          </select>
+        </div>
+        <div class="grp">
+          <label><input type="checkbox" id="nrOn"> Note Repeat</label>
+          <select id="nrRate">
+            <option>1/8</option><option selected>1/16</option><option>1/32</option>
+          </select>
         </div>
       </div>
 
-      <div class="timeline">
-        <div class="timeline-toolbar">
-          <span class="badge">Steps: <b id="stepCountLbl">8</b></span>
-          <button id="stepMinus" class="btn">–</button>
-          <button id="stepPlus" class="btn">+</button>
-          <small style="color:#8aa0b7">мин 4 / макс 32</small>
-        </div>
+      <div class="barLabels" id="barLabels"><span>1</span><span>5</span></div>
 
-        <div class="barLabels" id="barLabels"></div>
-
-        <div class="steps" id="steps">
-          <div class="playhead" id="playhead"></div>
-        </div>
-
-        <!-- Chords lane -->
-        <div class="noteRow" id="chordsRow">
-          <div class="name">Chords</div>
-          <div class="selects" id="chordsSelects"></div>
-        </div>
-
-        <!-- Bass 303 lane -->
-        <div class="laneTitle">Bass 303</div>
-        <div class="lane">
-          <div class="name">Pattern</div>
-          <div class="cells" id="bassCells"></div>
-        </div>
-        <div class="noteRow" id="bassNotesRow">
-          <div class="name">Notes</div>
-          <div class="selects" id="bassNotesSelects"></div>
-        </div>
-
-        <!-- Wavetable lane -->
-        <div class="laneTitle">Wavetable</div>
-        <div class="lane">
-          <div class="name">Pattern</div>
-          <div class="cells" id="wtCells"></div>
-        </div>
-        <div class="noteRow" id="wtNotesRow">
-          <div class="name">Notes</div>
-          <div class="selects" id="wtNotesSelects"></div>
-        </div>
+      <div class="steps" id="steps">
+        <div class="playhead" id="playhead"></div>
       </div>
 
-      <!-- Arranger -->
-      <div class="arranger">
-        <div class="arr-toolbar">
-          <button id="arrPlay" class="btn primary">▶ TL Play</button>
-          <button id="arrStop" class="btn danger">■ TL Stop</button>
-          <span class="len">Length: <b id="lenLabel">00:10</b> (drag blue line)</span>
-        </div>
-        <div class="arr-wrap" id="arrWrap">
-          <div class="arr-axis" id="arrAxis"></div>
-          <div class="arr-track" id="arrTrack"></div>
-          <div class="arr-playhead" id="arrPlayhead"></div>
-          <div class="arr-limit" id="arrLimit" title="Drag to set song end"></div>
-        </div>
-        <div class="inline-help">End of song = синята вертикална линия. Записва се само твоето действие. Двоен клик по клип = изтриване.</div>
+      <!-- Chords lane -->
+      <div class="noteRow" id="chordsRow">
+        <div class="name">Chords</div>
+        <div class="selects" id="chordsSelects"></div>
       </div>
 
-      <div class="footer">Всички инструменти записват в Arranger **само** при твоите действия (щраквания по стъпки/бутони).</div>
-    </section>
-
-    <!-- Splitter -->
-    <div id="splitter" title="Плъзни за промяна на размера"></div>
-
-    <!-- Right -->
-    <section class="panel right-panel">
-      <h2>Drum Machine &amp; MPC</h2>
-      <div class="row">
-        <div class="control">
-          <label>Master Volume</label>
-          <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.8" />
-        </div>
-        <div class="control">
-          <label>Chorus Amount</label>
-          <input type="range" id="chorusMix" min="0" max="0.8" step="0.01" value="0.25" />
-        </div>
-        <div class="control">
-          <label>Cutoff</label>
-          <input type="range" id="cutoff" min="200" max="8000" step="1" value="2200" />
-        </div>
-        <div class="control">
-          <label>Resonance (Q)</label>
-          <input type="range" id="reso" min="0.1" max="18" step="0.1" value="0.5" />
-        </div>
+      <!-- Bass 303 lane (визуално) -->
+      <div class="laneTitle">Bass 303</div>
+      <div class="lane">
+        <div class="name">Pattern</div>
+        <div class="cells" id="bassCells"></div>
+      </div>
+      <div class="noteRow" id="bassNotesRow">
+        <div class="name">Notes</div>
+        <div class="selects" id="bassNotesSelects"></div>
       </div>
 
-      <div class="row">
-        <div class="control"><label>Kick/Snare/Hat/Clap</label><small style="color:#8aa0b7">16-step решетка</small></div>
+      <!-- WT lane (визуално) -->
+      <div class="laneTitle">Wavetable</div>
+      <div class="lane">
+        <div class="name">Pattern</div>
+        <div class="cells" id="wtCells"></div>
       </div>
+      <div class="noteRow" id="wtNotesRow">
+        <div class="name">Notes</div>
+        <div class="selects" id="wtNotesSelects"></div>
+      </div>
+    </div>
 
-      <div class="drum-grid" id="drumGrid"></div>
-
-      <h2>MPC Sampler Pads</h2>
-      <div class="pads" id="mpcPads"></div>
-      <div class="pad-tools" id="padTools"></div>
-      <div class="footer">Натискането на Pad записва събитие в текущата позиция на timeline-а (ако е пуснат) или на 0s (ако е спрян).</div>
-    </section>
-  </main>
-</div>
-
-<div class="mobile-nav" role="navigation" aria-label="Mobile navigation">
-  <button data-page="studio" id="navStudio">Studio</button>
-  <button data-page="timeline" id="navTimeline">Timeline</button>
-  <button data-page="arranger" id="navArranger">Arranger</button>
-  <button data-page="drums" id="navDrums">Drums</button>
-</div>
-
-<div id="diagSizer" title="Плъзни по диагонал за мащабиране"></div>
+    <!-- Arranger -->
+    <div class="arranger">
+      <div class="arr-toolbar">
+        <button id="arrPlay" class="btn primary">▶ TL Play</button>
+        <button id="arrStop" class="btn danger">■ TL Stop</button>
+        <span class="len">Length <b id="lenLabel">00:10</b> — синята линия е краят</span>
+      </div>
+      <div class="arr-wrap" id="arrWrap">
+        <div class="arr-axis" id="arrAxis"></div>
+        <div class="arr-track" id="arrTrack"></div>
+        <div class="arr-playhead" id="arrPlayhead"></div>
+        <div class="arr-limit" id="arrLimit" title="Drag to set length"></div>
+      </div>
+      <div class="inline-help">Arranger се попълва само от твоите действия (стъпки/акорди/ARP). Няма наслагване при луп.</div>
+    </div>
+  </section>
+</main>
 
 <script>
-/* ================== Audio Core (както преди) ================== */
+/* ================== Audio ================== */
 const Audio = (()=>{
   const ctx = new (window.AudioContext||window.webkitAudioContext)();
   const master = ctx.createGain(); master.gain.value=0.8; master.connect(ctx.destination);
-  const tapBus = ctx.createGain(); tapBus.gain.value = 1.0; master.connect(tapBus);
-  const dryBus = ctx.createGain(); dryBus.gain.value=0.75; dryBus.connect(master);
-  const chorusBus = ctx.createGain(); chorusBus.gain.value=0.25;
-  const chorusDelay = ctx.createDelay(0.05);
-  const lfo = ctx.createOscillator(); const lfoGain=ctx.createGain(); lfoGain.gain.value=0.004; lfo.frequency.value=0.8; lfo.connect(lfoGain).connect(chorusDelay.delayTime);
-  chorusBus.connect(chorusDelay).connect(master); lfo.start();
-  const params = { cutoff:2200, reso:.5 };
-  function setMasterVol(v){ master.gain.value=v; }
-  function setChorusMix(v){ chorusBus.gain.value=v; }
-  function setFilterCutoff(v){ params.cutoff=v; }
-  function setFilterQ(v){ params.q=v; params.reso=v; }
+  const dryBus = ctx.createGain(); dryBus.gain.value=0.9; dryBus.connect(master);
+
   function playVoice({freq=220,time=ctx.currentTime,dur=0.25,vel=0.9}){
     const osc = ctx.createOscillator(); osc.type="sawtooth"; osc.frequency.setValueAtTime(freq,time);
-    const filt = ctx.createBiquadFilter(); filt.type="lowpass"; filt.frequency.setValueAtTime(params.cutoff,time); filt.Q.setValueAtTime(params.reso??0.5,time);
+    const filt = ctx.createBiquadFilter(); filt.type="lowpass"; filt.frequency.setValueAtTime(2000,time); filt.Q.setValueAtTime(0.6,time);
     const env = ctx.createGain(); env.gain.setValueAtTime(0.0001,time);
-    const A=0.005,D=Math.min(.4,dur*.6),S=0.25,R=0.12;
-    env.gain.linearRampToValueAtTime(vel,time+A);
-    env.gain.linearRampToValueAtTime(vel*S,time+A+D);
-    env.gain.linearRampToValueAtTime(0.0001,time+dur+R);
-    const dryTap=ctx.createGain(); const chTap=ctx.createGain(); dryTap.gain.value=1; chTap.gain.value=1;
-    osc.connect(filt).connect(env); env.connect(dryTap).connect(dryBus); env.connect(chTap).connect(chorusBus);
-    osc.start(time); osc.stop(time+dur+0.2);
-    osc.onended=()=>{try{osc.disconnect();filt.disconnect();env.disconnect();dryTap.disconnect();chTap.disconnect();}catch{}}
+    env.gain.linearRampToValueAtTime(vel,time+0.005);
+    env.gain.exponentialRampToValueAtTime(0.001, time+dur);
+    osc.connect(filt).connect(env).connect(dryBus);
+    osc.start(time); osc.stop(time+dur+0.05);
+    osc.onended=()=>{try{osc.disconnect();filt.disconnect();env.disconnect();}catch{}}
   }
-  function kick(time=ctx.currentTime, vel=1.0){
-    const osc=ctx.createOscillator(), env=ctx.createGain();
-    osc.type="sine"; osc.frequency.setValueAtTime(140,time); osc.frequency.exponentialRampToValueAtTime(40,time+0.12);
-    env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.002); env.gain.exponentialRampToValueAtTime(0.0001,time+0.25);
-    osc.connect(env).connect(dryBus); osc.start(time); osc.stop(time+0.26);
-    osc.onended=()=>{try{osc.disconnect();env.disconnect();}catch{}}
-  }
-  function snare(time=ctx.currentTime, vel=0.8){
-    const size=2*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
-    for(let i=0;i<size;i++) data[i]=Math.random()*2-1;
-    const src=ctx.createBufferSource(); src.buffer=buf; const bp=ctx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=1800; bp.Q.value=0.6;
-    const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.002); env.gain.exponentialRampToValueAtTime(0.0001,time+0.18);
-    src.connect(bp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.2);
-    src.onended=()=>{try{src.disconnect();bp.disconnect();env.disconnect();}catch{}}
-  }
-  function hat(time=ctx.currentTime, vel=0.6){
-    const size=1*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
-    for(let i=0;i<size;i++) data[i]=(Math.random()*2-1)*0.7;
-    const src=ctx.createBufferSource(); src.buffer=buf; const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=7000;
-    const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.001); env.gain.exponentialRampToValueAtTime(0.0001,time+0.06);
-    src.connect(hp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.08);
-    src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}}
-  }
-  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ snare(time+i*0.01, vel*0.55); } }
-  function createSampler(){
-    const slots = new Array(16).fill(null);
-    async function loadFromFile(i, file){ const arr=await file.arrayBuffer(); const buf=await ctx.decodeAudioData(arr); slots[i]={buffer:buf,name:file.name}; return true; }
-    function play(i,time=ctx.currentTime,vel=0.9){ const s=slots[i]; if(s&&s.buffer){ const src=ctx.createBufferSource(); const g=ctx.createGain(); g.gain.value=vel; src.buffer=s.buffer; src.connect(g).connect(dryBus); src.start(time); src.onended=()=>{try{src.disconnect();g.disconnect();}catch{}} } else { playVoice({freq:440+(i%4)*60,time,dur:.15,vel:.6}); } }
-    function name(i){ return slots[i]?.name || "Empty"; }
-    function names(){ return slots.map(s=>s?.name||null); }
-    return { loadFromFile, play, name, names };
-  }
-  const B303 = (()=>{
-    let lastFreq = 110;
-    const vol = ctx.createGain(); vol.gain.value=0.9; vol.connect(dryBus);
-    function setVol(v){ vol.gain.value=v; }
-    function trig({freq=110, time=ctx.currentTime, dur=0.25, slide=0.06, reso=8, accent=0.35}){
-      const osc=ctx.createOscillator(); osc.type="sawtooth";
-      const filt=ctx.createBiquadFilter(); filt.type="lowpass"; filt.Q.value=reso;
-      const env=ctx.createGain(); env.gain.value=0.0001;
-      const baseCut = 900 + accent*700; const targetCut = baseCut + 1200*accent;
-      const upd = (t, v)=> filt.frequency.linearRampToValueAtTime(Math.max(80, v), t);
-      upd(time, baseCut); upd(time+0.02, targetCut); upd(time+dur*0.9, baseCut);
-      const startFreq = lastFreq || freq;
-      osc.frequency.setValueAtTime(startFreq, time); osc.frequency.linearRampToValueAtTime(freq, time+Math.max(0.001, slide));
-      env.gain.setValueAtTime(0.0001,time); env.gain.linearRampToValueAtTime(0.9+accent*0.4, time+0.005); env.gain.exponentialRampToValueAtTime(0.001, time+dur*1.05);
-      osc.connect(filt).connect(env).connect(vol); osc.start(time); osc.stop(time+dur*1.1);
-      osc.onended=()=>{ try{osc.disconnect();filt.disconnect();env.disconnect();}catch{} }; lastFreq = freq;
-    }
-    return { trig, setVol };
-  })();
-  const WT = (()=>{
-    const vol = ctx.createGain(); vol.gain.value=0.8; vol.connect(dryBus);
-    let morph = 0.4; let hold=0.25;
-    function setVol(v){ vol.gain.value=v; } function setMorph(v){ morph = v; } function setHold(v){ hold = v; }
-    function trig({freq=220, time=ctx.currentTime}){ const o1=ctx.createOscillator(); const o2=ctx.createOscillator();
-      o1.type="sawtooth"; o2.type="square"; o1.frequency.setValueAtTime(freq, time); o2.frequency.setValueAtTime(freq, time);
-      const g1=ctx.createGain(); const g2=ctx.createGain(); g1.gain.value=1-morph; g2.gain.value=morph;
-      const env=ctx.createGain(); env.gain.value=0.0001;
-      o1.connect(g1).connect(env); o2.connect(g2).connect(env); env.connect(vol);
-      env.gain.linearRampToValueAtTime(0.9, time+0.005);
-      env.gain.exponentialRampToValueAtTime(0.001, time+Math.max(0.06, hold));
-      o1.start(time); o2.start(time); o1.stop(time+hold+0.2); o2.stop(time+hold+0.2);
-      o2.onended=()=>{try{o1.disconnect();o2.disconnect();g1.disconnect();g2.disconnect();env.disconnect();}catch{}}
-    }
-    return { trig, setVol, setMorph, setHold };
-  })();
-  return { ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
+  return { ctx, playVoice };
 })();
 
-/* ================== Theory ================== */
+/* ======= Theory ======= */
 const Theory = (()=>{
   const noteMap={"C":0,"C#":1,"Db":1,"D":2,"D#":3,"Eb":3,"E":4,"F":5,"F#":6,"Gb":6,"G":7,"G#":8,"Ab":8,"A":9,"A#":10,"Bb":10,"B":11};
-  function freq(name="C4"){ const m=/^([A-G][#b]?)(-?\d)$/.exec(name); if(!m) return 440; const n=noteMap[m[1]]??0; const oct=parseInt(m[2],10); const midi=12*(oct+1)+n; return 440*Math.pow(2,(midi-69)/12); }
+  function midiFromName(name="C4"){ const m=/^([A-G][#b]?)(-?\d)$/.exec(name); if(!m) return 60; const n=noteMap[m[1]]??0; const oct=parseInt(m[2],10); return 12*(oct+1)+n; }
+  function freq(name="C4"){ const midi=midiFromName(name); return 440*Math.pow(2,(midi-69)/12); }
   function chordToNotes(label="Am"){
     const roots=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
     let root=roots.find(r=>label.startsWith(r))||"C"; let q=label.slice(root.length).trim();
@@ -392,9 +208,10 @@ const Theory = (()=>{
     const thirds = q.includes("m") && !q.includes("maj") ? 3 : 4;
     const seventh = q.includes("maj7")? 11 : (q.includes("7")? 10 : null);
     const sus2=/sus2/.test(q), sus4=/sus4/.test(q), add9=/add9/.test(q);
-    const notes=[]; if(sus2){ notes.push(baseMidi+2); } else if(sus4){ notes.push(baseMidi+5); } else { notes.push(baseMidi+thirds); }
-    notes.push(baseMidi); notes.push(baseMidi+7); if(seventh!==null) notes.push(baseMidi+seventh); if(add9) notes.push(baseMidi+14);
-    return notes.map(m=>440*Math.pow(2,(m-69)/12));
+    const mids=[]; if(sus2){ mids.push(baseMidi+2); } else if(sus4){ mids.push(baseMidi+5); } else { mids.push(baseMidi+thirds); }
+    mids.push(baseMidi); mids.push(baseMidi+7); if(seventh!==null) mids.push(baseMidi+seventh); if(add9) mids.push(baseMidi+14);
+    const freqs = mids.map(m=>440*Math.pow(2,(m-69)/12)).sort((a,b)=>a-b);
+    return freqs;
   }
   const pitchChoices = (()=>{
     const octaves=[2,3,4]; const keys=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -403,543 +220,295 @@ const Theory = (()=>{
   return { freq, chordToNotes, pitchChoices };
 })();
 
-/* ================== UI с динамичен брой стъпки ================== */
+/* ======= UI (8 стъпки, диалози) ======= */
 const UI = (()=>{
-  const el = {
-    steps: document.getElementById('steps'),
-    playhead: document.getElementById('playhead'),
-    barLabels: document.getElementById('barLabels'),
-    chordsSelects: document.getElementById('chordsSelects'),
-    bassCells: document.getElementById('bassCells'),
-    bassNotesSelects: document.getElementById('bassNotesSelects'),
-    wtCells: document.getElementById('wtCells'),
-    wtNotesSelects: document.getElementById('wtNotesSelects'),
-    stepLbl: document.getElementById('stepCountLbl'),
-    stepMinus: document.getElementById('stepMinus'),
-    stepPlus: document.getElementById('stepPlus'),
-    bpm: document.getElementById('bpm'), bpmVal: document.getElementById('bpmVal'),
-    arm: document.getElementById('armTl'),
-    drumGrid: document.getElementById('drumGrid'),
-  };
+  const stepsEl = document.getElementById('steps');
+  const playheadEl = document.getElementById('playhead');
+  const chordsSelects = document.getElementById('chordsSelects');
+  const barLabels = document.getElementById('barLabels');
+  const bpmEl = document.getElementById('bpm'); const bpmVal=document.getElementById('bpmVal'); bpmEl.addEventListener('input',()=> bpmVal.textContent=bpmEl.value);
+
+  const arpOn = document.getElementById('arpOn');
+  const arpRate = document.getElementById('arpRate');
+  const arpDir = document.getElementById('arpDir');
+  const arpOct = document.getElementById('arpOct');
+  const nrOn = document.getElementById('nrOn');
+  const nrRate = document.getElementById('nrRate');
+
+  const steps = Array.from({length:8},(_,i)=>{
+    const d=document.createElement('div'); d.className='step'; d.textContent=i+1;
+    d.addEventListener('click', ()=>{ d.classList.toggle('on'); Mirror.syncChordsToArranger(); });
+    stepsEl.appendChild(d); return d;
+  });
 
   const chordOptions=["C","Cm","Cmaj7","C7","C add9","C sus2","C sus4","D","Dm","Dmaj7","D7","D add9","D sus2","D sus4","E","Em","Emaj7","E7","E add9","E sus2","E sus4","F","Fm","Fmaj7","F7","F add9","F sus2","F sus4","G","Gm","Gmaj7","G7","G add9","G sus2","G sus4","A","Am","Amaj7","A7","A add9","A sus2","A sus4","B","Bm","Bmaj7","B7","B add9","B sus2","B sus4"];
-
-  let stepCount = 8;
-  let steps=[], chords=[], bassSteps=[], bassNotes=[], wtSteps=[], wtNotes=[];
-  const drumNames=["Kick","Snare","Hat","Clap"];
-  const drumPattern={grid:Array.from({length:4},()=> Array(16).fill(false))};
-
-  function gridCols(n, target){ target.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`; }
-  function drawBarLabels(){
-    el.barLabels.innerHTML='';
-    const marks = Math.ceil(stepCount/4);
-    for(let i=0;i<=marks;i++){
-      const s=document.createElement('span'); s.textContent = i*4+1 <= stepCount ? (i*4+1) : '';
-      el.barLabels.appendChild(s);
-    }
+  const chords = Array.from({length:8},()=> "Am");
+  for(let i=0;i<8;i++){
+    const s=document.createElement('select'); chordOptions.forEach(opt=>{ const o=document.createElement('option'); o.value=o.textContent=opt; s.appendChild(o); });
+    s.value=chords[i];
+    s.addEventListener('change', ()=>{ chords[i]=s.value; Mirror.syncChordsToArranger(); });
+    chordsSelects.appendChild(s);
   }
 
-  function rebuild(mainState){
-    const old = {
-      steps: steps.map(d=> d.classList.contains('on')),
-      chords: chords.slice(),
-      bassSteps: bassSteps.map(c=> c.classList.contains('on')),
-      bassNotes: bassNotes.map(s=> s.value),
-      wtSteps: wtSteps.map(c=> c.classList.contains('on')),
-      wtNotes: wtNotes.map(s=> s.value),
-      stepCount
-    };
-    if(mainState && typeof mainState.stepCount==='number') stepCount = Math.max(4, Math.min(32, mainState.stepCount));
+  // Bass/WT (визуално, за да пасне на UI ти; не записват)
+  const bassCells=document.getElementById('bassCells'), bassNotesSelects=document.getElementById('bassNotesSelects');
+  const wtCells=document.getElementById('wtCells'), wtNotesSelects=document.getElementById('wtNotesSelects');
+  const pitch=Theory.pitchChoices;
+  for(let i=0;i<8;i++){
+    const c1=document.createElement('div'); c1.className='cell'; c1.textContent=i+1; c1.addEventListener('click',()=> c1.classList.toggle('on')); bassCells.appendChild(c1);
+    const n1=document.createElement('select'); pitch.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; n1.appendChild(o); }); n1.value=["C2","E2","G2","A2","C3","E3","G2","A2"][i%8]; bassNotesSelects.appendChild(n1);
 
-    // Steps
-    el.steps.querySelectorAll('.step').forEach(n=> n.remove());
-    steps = Array.from({length:stepCount},(_,i)=>{
-      const d=document.createElement('div'); d.className='step'; d.textContent=i+1;
-      d.addEventListener('click', ()=>{
-        d.classList.toggle('on');
-        if(d.classList.contains('on')) ActionRecord.addChordAtStep(i);
-        else ActionRecord.removeChordAtStep(i);
-        Settings.queueSave();
-      });
-      el.steps.appendChild(d); return d;
-    });
-    gridCols(stepCount, el.steps);
-    el.steps.prepend(el.playhead);
-
-    // Chords selects
-    el.chordsSelects.innerHTML='';
-    chords = Array.from({length:stepCount},(_,i)=> (old.chords[i] ?? "Am"));
-    for(let i=0;i<stepCount;i++){
-      const s=document.createElement('select');
-      chordOptions.forEach(opt=>{ const o=document.createElement('option'); o.value=o.textContent=opt; s.appendChild(o); });
-      s.value=chords[i];
-      s.addEventListener('change', ()=>{
-        chords[i]=s.value;
-        if(steps[i].classList.contains('on')) ActionRecord.addChordAtStep(i, true); // replace chord notes at that step
-        Settings.queueSave();
-      });
-      el.chordsSelects.appendChild(s);
-    }
-    gridCols(stepCount, el.chordsSelects);
-
-    // Bass 303
-    el.bassCells.innerHTML=''; el.bassNotesSelects.innerHTML='';
-    bassSteps = Array.from({length:stepCount},(_,i)=>{
-      const c=document.createElement('div'); c.className='cell'; c.textContent=i+1;
-      c.addEventListener('click', ()=>{
-        c.classList.toggle('on');
-        if(c.classList.contains('on')) ActionRecord.addBassAtStep(i);
-        else ActionRecord.removeBassAtStep(i);
-        Settings.queueSave();
-      });
-      el.bassCells.appendChild(c); return c;
-    });
-    gridCols(stepCount, el.bassCells);
-    bassNotes = Array.from({length:stepCount},(_,i)=>{
-      const s=document.createElement('select');
-      Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
-      s.value = old.bassNotes[i] ?? ["C2","E2","G2","A2","C3","E3","G2","A2"][i%8];
-      s.addEventListener('change', ()=> { if(bassSteps[i].classList.contains('on')) ActionRecord.addBassAtStep(i, true); Settings.queueSave(); });
-      el.bassNotesSelects.appendChild(s); return s;
-    });
-    gridCols(stepCount, el.bassNotesSelects);
-
-    // WT
-    el.wtCells.innerHTML=''; el.wtNotesSelects.innerHTML='';
-    wtSteps = Array.from({length:stepCount},(_,i)=>{
-      const c=document.createElement('div'); c.className='cell'; c.textContent=i+1;
-      c.addEventListener('click', ()=>{
-        c.classList.toggle('on');
-        if(c.classList.contains('on')) ActionRecord.addWTAtStep(i);
-        else ActionRecord.removeWTAtStep(i);
-        Settings.queueSave();
-      });
-      el.wtCells.appendChild(c); return c;
-    });
-    gridCols(stepCount, el.wtCells);
-    wtNotes = Array.from({length:stepCount},(_,i)=>{
-      const s=document.createElement('select');
-      Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
-      s.value = old.wtNotes[i] ?? ["C3","D3","E3","G3","A3","B3","A3","G3"][i%8];
-      s.addEventListener('change', ()=> { if(wtSteps[i].classList.contains('on')) ActionRecord.addWTAtStep(i, true); Settings.queueSave(); });
-      el.wtNotesSelects.appendChild(s); return s;
-    });
-    gridCols(stepCount, el.wtNotesSelects);
-
-    // Restore toggles
-    for(let i=0;i<Math.min(old.stepCount, stepCount); i++){
-      if(old.steps[i]) steps[i].classList.add('on');
-      if(old.bassSteps[i]) bassSteps[i].classList.add('on');
-      if(old.wtSteps[i]) wtSteps[i].classList.add('on');
-    }
-
-    el.stepLbl.textContent = stepCount;
-    drawBarLabels();
+    const c2=document.createElement('div'); c2.className='cell'; c2.textContent=i+1; c2.addEventListener('click',()=> c2.classList.toggle('on')); wtCells.appendChild(c2);
+    const n2=document.createElement('select'); pitch.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; n2.appendChild(o); }); n2.value=["C3","D3","E3","G3","A3","B3","A3","G3"][i%8]; wtNotesSelects.appendChild(n2);
   }
 
-  // Drum grid 4x16
-  function buildDrums(){
-    const g = el.drumGrid; g.innerHTML='';
-    for(let r=0;r<4;r++){
-      const name=document.createElement('div'); name.textContent=drumNames[r];
-      name.style.cssText='display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#9fadc1;font-size:12px;';
-      g.appendChild(name);
-      for(let c=0;c<16;c++){
-        const cell=document.createElement('div'); cell.style.cssText='aspect-ratio:1/1;border:1px solid #24324a;border-radius:8px;background:linear-gradient(180deg,#0e1726,#0b1422);cursor:pointer;';
-        if(drumPattern.grid[r][c]){ cell.classList.add('on'); cell.style.background='linear-gradient(180deg,#183456,#14253f)'; cell.style.borderColor='#2b84c8'; }
-        cell.addEventListener('click',()=>{
-          cell.classList.toggle('on');
-          drumPattern.grid[r][c]=cell.classList.contains('on');
-          const t = Arranger.stepTimeFromGrid(c,16);
-          if(cell.classList.contains('on')) Arranger.addUnique({type:'drums', t, dur:0.1, lane:'drums', label:drumNames[r]});
-          else Arranger.removeMatch({type:'drums', t, lane:'drums', label:drumNames[r]});
-          Settings.queueSave();
-        });
-        g.appendChild(cell);
-      }
-    }
-    g.style.gridTemplateColumns = '100px repeat(16, 1fr)';
-  }
+  barLabels.innerHTML='<span>1</span><span>5</span>';
 
-  // Pads + file loaders
-  const sampler = Audio.createSampler();
-  function buildPads(){
-    const padGrid=document.getElementById('mpcPads'); const padTools=document.getElementById('padTools');
-    padGrid.innerHTML=''; padTools.innerHTML='';
-    for(let i=0;i<16;i++){
-      const pad=document.createElement('div'); pad.className='pad';
-      pad.style.cssText='aspect-ratio:1/1;border-radius:16px;background:linear-gradient(180deg,#141f31,#0f1827);border:1px solid #22324b;display:flex;align-items:center;justify-content:center;font-weight:700;color:#c7d8ef;font-size:14px;cursor:pointer;transition:transform .05s, box-shadow .2s;';
-      pad.innerHTML=(i+1)+'<small id="padName'+i+'" style="display:block;font-weight:400;color:#8ea3bd"></small>';
-      pad.addEventListener('mousedown', ()=>{
-        const t = Arranger.getLocalTime();
-        sampler.play(i);
-        if(document.getElementById('armTl').checked) Arranger.addUnique({type:'pad', t, dur:0.4, lane:'pad', index:i});
-      });
-      pad.addEventListener('touchstart', (e)=>{
-        e.preventDefault();
-        const t = Arranger.getLocalTime();
-        sampler.play(i);
-        if(document.getElementById('armTl').checked) Arranger.addUnique({type:'pad', t, dur:0.4, lane:'pad', index:i});
-      }, {passive:false});
-      padGrid.appendChild(pad);
-      const file=document.createElement('input'); file.type='file'; file.accept='audio/*'; file.className='file';
-      file.addEventListener('change', async()=>{ if(file.files[0]){ await sampler.loadFromFile(i,file.files[0]); document.getElementById('padName'+i).textContent=sampler.name(i); Settings.queueSave(); } });
-      padTools.appendChild(file);
-    }
-  }
-
-  // bindings
-  el.bpm.addEventListener('input',()=> el.bpmVal.textContent=el.bpm.value);
-  el.stepMinus.addEventListener('click', ()=>{ setStepCount(stepCount-1); });
-  el.stepPlus.addEventListener('click', ()=>{ setStepCount(stepCount+1); });
-
-  function setStepCount(n){ stepCount = Math.max(4, Math.min(32, n|0)); rebuild({stepCount}); Settings.queueSave(); }
-  function getStepCount(){ return stepCount; }
-
-  rebuild({stepCount});
-  buildDrums();
-  buildPads();
-
+  // expose
   return {
-    get stepCount(){ return getStepCount(); },
-    set stepCount(v){ setStepCount(v); },
-    steps: ()=> steps,
-    chords: ()=> chords,
-    bassSteps: ()=> bassSteps,
-    bassNotes: ()=> bassNotes,
-    wtSteps: ()=> wtSteps,
-    wtNotes: ()=> wtNotes,
-    drumPattern, sampler,
-    arm: ()=> el.arm,
-    playhead: ()=> el.playhead,
-    bpm: ()=> el.bpm
+    steps, chords, bpmEl, playheadEl,
+    arp: { arpOn, arpRate, arpDir, arpOct, nrOn, nrRate }
   };
 })();
 
-/* ================== Transport (само плейбек, без запис) ================== */
+/* ======= Transport (tick = 1/8 note) + ARP playback ======= */
 const Transport = (()=>{
   const S={running:false, stepIndex:0, timer:null};
-  function stepMs(){ return 60000 / parseInt(UI.bpm().value,10) / 2; } // 8ths
+  function stepMs(){ return 60000 / parseInt(UI.bpmEl.value,10) / 2; } // 1/8
   function start(){ Audio.ctx.resume(); if(S.running) return; S.running=true; S.stepIndex=0; tick(); }
   function stop(){ if(!S.running) return; S.running=false; if(S.timer){ clearTimeout(S.timer); S.timer=null; } }
   function scheduleNext(){ if(!S.running) return; const ms=stepMs(); S.timer=setTimeout(tick, ms); }
 
+  function parseRate(txt){ const [a,b]=txt.split('/').map(Number); return a/b; } // e.g. 1/16 -> 0.0625 (note length of a whole)
+  function rateToMs(rate, bpm){ // duration of that note in ms
+    const quarterMs = 60000 / bpm;
+    const wholeMs = quarterMs * 4;
+    return wholeMs * rate;
+  }
+
+  function buildArpOrder(freqs, dir, octMult){
+    // freqs sorted asc
+    const list=[];
+    for(let oct=0; oct<octMult; oct++){
+      const mul = Math.pow(2, oct);
+      const base = freqs.map(f=> f*mul);
+      if(dir==='Up') list.push(...base);
+      else if(dir==='Down') list.push(...base.slice().reverse());
+      else if(dir==='UpDown'){
+        const up=base, down=base.slice().reverse().slice(1,-1);
+        list.push(...up, ...down);
+      }else if(dir==='Random'){
+        const rnd=base.slice();
+        for(let i=rnd.length-1;i>0;i--){ const j=(Math.random()* (i+1))|0; [rnd[i],rnd[j]]=[rnd[j],rnd[i]]; }
+        list.push(...rnd);
+      }
+    }
+    return list.length? list : freqs;
+  }
+
   function tick(){
     if(!S.running) return;
-    const ms=stepMs(); const t=Audio.ctx.currentTime; const i=S.stepIndex; const N=UI.stepCount;
-    UI.playhead().style.left = ((i/N)*100)+'%';
+    const ms=stepMs(); const t=Audio.ctx.currentTime; const i=S.stepIndex;
+    UI.playheadEl.style.left = ((i/8)*100)+'%';
 
-    // Playback only — без Arranger.record тук!
-    const steps = UI.steps();
-    if(steps[i]?.classList.contains('on')){
-      const chord = UI.chords()[i];
-      const ns=Theory.chordToNotes(chord);
-      ns.forEach(f=> Audio.playVoice({freq:f,time:t,dur:ms/1000*0.9,vel:0.85}));
-    }
-    if(UI.bassSteps()[i]?.classList.contains('on')){
-      const f=Theory.freq(UI.bassNotes()[i].value);
-      Audio.B303.trig({freq:f,time:t,dur:ms/1000*0.95,slide:window.__b303Slide,reso:window.__b303Reso,accent:window.__b303Accent});
-    }
-    if(UI.wtSteps()[i]?.classList.contains('on')){
-      const f=Theory.freq(UI.wtNotes()[i].value);
-      Audio.WT.trig({freq:f,time:t});
-    }
-    // drums playback на базата на 16-стъпковия грид
-    const col = Math.round(i*(16/UI.stepCount));
-    const g = UI.drumPattern.grid;
-    if(g[0][col]) Audio.kick(t,1.0);
-    if(g[1][col]) Audio.snare(t,0.85);
-    if(g[2][col]) Audio.hat(t,0.6);
-    if(g[3][col]) Audio.clap(t,0.65);
+    // ----- Playback: Chords with ARP / Note Repeat -----
+    if(UI.steps[i].classList.contains('on')){
+      const chordLabel = UI.chords[i];
+      const baseFreqs = Theory.chordToNotes(chordLabel); // asc
 
-    S.stepIndex = (S.stepIndex+1)%N;
+      const arpEnabled = UI.arp.arpOn.checked;
+      const bpm = parseInt(UI.bpmEl.value,10);
+
+      if(arpEnabled){
+        const rate = UI.arp.arpRate.value;                 // e.g. 1/16
+        const segMs = rateToMs(parseRate(rate), bpm);      // ms per arp note
+        const stepDurMs = ms;                               // step = 1/8
+        const count = Math.max(1, Math.floor(stepDurMs/segMs));
+        const dir = UI.arp.arpDir.value;
+        const octMult = parseInt(UI.arp.arpOct.value.replace('×',''),10) || 1;
+        const order = buildArpOrder(baseFreqs, dir, octMult);
+
+        for(let k=0;k<count;k++){
+          const f = order[k % order.length];
+          const when = t + (k*segMs)/1000;
+          const dur = Math.max(0.05, (segMs*0.9)/1000);
+          Audio.playVoice({freq:f, time:when, dur});
+        }
+      }else{
+        // Note Repeat (на целия акорд)
+        const nrEnabled = UI.arp.nrOn.checked;
+        if(nrEnabled){
+          const rate = UI.arp.nrRate.value;
+          const segMs = rateToMs(parseRate(rate), parseInt(UI.bpmEl.value,10));
+          const stepDurMs = ms;
+          const count = Math.max(1, Math.floor(stepDurMs/segMs));
+          for(let k=0;k<count;k++){
+            const when = t + (k*segMs)/1000;
+            const dur = Math.max(0.06, (segMs*0.9)/1000);
+            baseFreqs.forEach(f=> Audio.playVoice({freq:f, time:when, dur}));
+          }
+        }else{
+          // Еднократно свирене на акорда
+          baseFreqs.forEach(f=> Audio.playVoice({freq:f, time:t, dur:ms/1000*0.9}));
+        }
+      }
+    }
+
+    S.stepIndex = (S.stepIndex+1)%8;
     scheduleNext();
   }
   return { start, stop };
 })();
 
-/* ================== Arranger: видим целия timeline + запис само от действия ================== */
+/* ======= Arranger (видим целият таймлайн, край = синя линия) ======= */
 const Arranger = (()=>{
   const wrap=document.getElementById('arrWrap'); const axis=document.getElementById('arrAxis'); const track=document.getElementById('arrTrack');
   const playhead=document.getElementById('arrPlayhead'); const limit=document.getElementById('arrLimit'); const lenLabel=document.getElementById('lenLabel');
-  const laneNames=["Chords/Notes","Bass303","Wavetable","Drums","Pads"];
-  const laneMap={chord:0,bass303:1,wt:2,drums:3,pad:4, note:0};
-  let pxPerSec=100, lenSec=10, lastLocal=0, playing=false, startTime=0;
-  const events=[];
-  const EPS=0.01;
 
-  function fitScale(){ pxPerSec = Math.max(30, (wrap.clientWidth-8) / lenSec); } // винаги побира целия timeline
+  let lenSec=10;           // по подразбиране 0:10
+  let pxPerSec=1;          // винаги така, че да се вижда цялата дължина
+  const events=[];         // единствено от Mirror.* (твои действия). НЯМА добавяне при tick/loop.
+
   function fmt(sec){ const m=Math.floor(sec/60), s=Math.floor(sec%60); return (m+'').padStart(2,'0')+':'+(s+'').padStart(2,'0'); }
 
-  function drawAxis(){
-    fitScale();
-    axis.innerHTML=''; track.innerHTML='';
-    // ос и етикети
+  function layout(){
+    pxPerSec = wrap.clientWidth / lenSec;         // цялата дължина се побира
+    axis.innerHTML='';
     const total=Math.ceil(lenSec);
-    for(let s=0;s<=total;s+=1){
-      const x=s*pxPerSec; const tick=document.createElement('div'); tick.style.position='absolute'; tick.style.top=0; tick.style.bottom=0; tick.style.left=x+'px'; tick.style.borderLeft='1px solid #1e2a3d'; axis.appendChild(tick);
-      const lab=document.createElement('div'); lab.style.position='absolute'; lab.style.left=x+'px'; lab.style.top='0'; lab.style.transform='translate(-50%,0)'; lab.style.fontSize='10px'; lab.style.color='#7e91a9'; const mm=(''+Math.floor(s/60)).padStart(2,'0'); const ss=(''+Math.floor(s%60)).padStart(2,'0'); lab.textContent=mm+':'+ss; axis.appendChild(lab);
+    for(let s=0;s<=total;s++){
+      const x=s*pxPerSec;
+      const tick=document.createElement('div'); tick.style.cssText=`position:absolute;top:0;bottom:0;left:${x}px;border-left:1px solid #1e2a3d`; axis.appendChild(tick);
+      const lab=document.createElement('div'); lab.style.cssText=`position:absolute;left:${x}px;top:0;transform:translate(-50%,0);font-size:10px;color:#7e91a9`; lab.textContent=fmt(s); axis.appendChild(lab);
     }
-    // lane labels + separators
-    for(let i=0;i<laneNames.length;i++){
-      const sep=document.createElement('div'); sep.className='laneGrid'; sep.style.top = (i*36)+'px'; track.appendChild(sep);
-      const lab=document.createElement('div'); lab.className='laneLabel'; lab.style.top = (i*36+2)+'px'; lab.textContent=laneNames[i]; track.appendChild(lab);
+    // limit = край на песента (синя линия)
+    limit.style.left = (lenSec*pxPerSec - limit.offsetWidth/2) + 'px';
+
+    // прерисуване на евентите
+    track.innerHTML='';
+    for(const ev of events){
+      const el=document.createElement('div'); el.className='arr-event note'; el.textContent='ch';
+      const w=Math.max(8, ev.dur*pxPerSec);
+      el.style.left=(ev.t*pxPerSec)+'px'; el.style.width=w+'px'; el.style.top='26px';
+      track.appendChild(el);
     }
-    // events
-    for(const ev of events){ drawEvent(ev); }
-    // end limiter (край на песента)
-    limit.style.left=(lenSec*pxPerSec - limit.offsetWidth/2)+'px';
-    lenLabel.textContent = fmt(lenSec);
   }
 
-  function drawEvent(ev){
-    const el=document.createElement('div'); el.className = 'arr-event '+(ev.type||''); el.textContent = ev.type==='drums' ? (ev.label||'drum') : (ev.type||'ev');
-    const w=Math.max(10, (ev.dur||0.25)*pxPerSec);
-    const laneIndex = laneMap[ev.lane || ev.type] ?? 0;
-    el.style.left=(ev.t*pxPerSec)+'px'; el.style.width=w+'px'; el.style.top=(laneIndex*36+8)+'px';
-    el.title = `${ev.type} @ ${ev.t.toFixed(2)}s`;
-    // interactions
-    el.addEventListener('dblclick', ()=>{ removeExact(ev); Settings.queueSave(); });
-    let drag=false,sx=0,sl=0;
-    el.addEventListener('mousedown', (e)=>{ drag=true; sx=e.clientX; sl=parseFloat(el.style.left)||0; e.preventDefault(); });
-    window.addEventListener('mousemove', (e)=>{ if(!drag) return; const dx=e.clientX-sx; const nx=Math.max(0, Math.min(lenSec*pxPerSec - w, sl+dx)); el.style.left=nx+'px'; ev.t = nx/pxPerSec; });
-    window.addEventListener('mouseup', ()=> { if(drag){ drag=false; Settings.queueSave(); } });
-    track.appendChild(el);
-  }
-
-  // limiter drag (край на песента)
-  (function setupLimit(){
-    let drag=false, sx=0, sl=0;
-    limit.addEventListener('mousedown', (e)=>{ drag=true; sx=e.clientX; sl=parseFloat(limit.style.left)||(lenSec*pxPerSec); e.preventDefault(); });
-    window.addEventListener('mousemove', (e)=>{
-      if(!drag) return;
-      const dx=e.clientX-sx; const nx=Math.max(40, Math.min(wrap.clientWidth-4, sl+dx));
-      limit.style.left=nx+'px'; lenSec=Math.max(1, nx/pxPerSec); lenLabel.textContent=fmt(lenSec); drawAxis(); // прерисувай с нов scale
-    });
-    window.addEventListener('mouseup', ()=> { if(drag){ drag=false; Settings.queueSave(); } });
-  })();
-
-  // play
-  function play(){ if(playing) return; Audio.ctx.resume(); playing=true; startTime=Audio.ctx.currentTime; lastLocal=0; requestAnimationFrame(raf); }
+  // плейбек на таймлайн
+  let playing=false, startTime=0;
+  function play(){ if(playing) return; Audio.ctx.resume(); playing=true; startTime=Audio.ctx.currentTime; raf(); }
   function stop(){ playing=false; }
   function raf(){
     if(!playing) return;
-    const now=Audio.ctx.currentTime; let local=(now-startTime) % lenSec;
-    const from=lastLocal, to=local;
-    if(to<from){ schedule(from,lenSec); schedule(0,to); } else { schedule(from,to); }
-    lastLocal=local; playhead.style.left=(local*pxPerSec)+'px'; requestAnimationFrame(raf);
-  }
-  function schedule(a,b){
     const now=Audio.ctx.currentTime;
-    for(const ev of events){ if(ev.t>=a && ev.t<b){ const dt = ev.t - ((now-startTime)%lenSec); const when = now + Math.max(0, dt); trigger(ev, when); } }
-  }
-  function trigger(ev, when){
-    if(ev.type==='note'){ Audio.playVoice({freq:ev.freq,time:when,dur:ev.dur||0.25,vel:0.9}); }
-    else if(ev.type==='bass303'){ Audio.B303.trig({freq:ev.freq,time:when,dur:ev.dur||0.25,slide:window.__b303Slide,reso:window.__b303Reso,accent:window.__b303Accent}); }
-    else if(ev.type==='wt'){ Audio.WT.trig({freq:ev.freq,time:when}); }
-    else if(ev.type==='drums'){ if(ev.label==='Kick') Audio.kick(when,1.0); else if(ev.label==='Snare') Audio.snare(when,0.85); else if(ev.label==='Hat') Audio.hat(when,0.6); else if(ev.label==='Clap') Audio.clap(when,0.65); }
-    else if(ev.type==='pad'){ UI && UI.sampler && UI.sampler.play(ev.index, when, 0.9); }
+    const local = ((now-startTime) % lenSec);
+    playhead.style.left = (local*pxPerSec)+'px';
+    requestAnimationFrame(raf);
   }
 
-  // Helpers for unique add/remove (без наслагване на loop)
-  function sameTime(a,b){ return Math.abs(a-b) <= EPS; }
-  function addUnique(ev){
-    // ако вече има същия тип/lane на същото време – не добавяй второ
-    const idx = events.findIndex(e=> e.type===ev.type && (e.lane||e.type)===(ev.lane||ev.type) && sameTime(e.t, ev.t) && (e.label||'')===(ev.label||'') && (e.index??-1)===(ev.index??-1));
-    if(idx===-1){ events.push(ev); drawAxis(); }
-  }
-  function removeMatch(filter){
-    let removed=false;
-    for(let i=events.length-1;i>=0;i--){
-      const e=events[i];
-      const same = e.type===filter.type && (e.lane||e.type)===(filter.lane||filter.type) && sameTime(e.t, filter.t) && (filter.label? e.label===filter.label : true) && (filter.index!=null? e.index===filter.index : true);
-      if(same){ events.splice(i,1); removed=true; }
-    }
-    if(removed) drawAxis();
-  }
-  function removeExact(ev){
-    const i=events.indexOf(ev);
-    if(i>-1){ events.splice(i,1); drawAxis(); }
-  }
+  // drag на синята линия
+  (function dragLimit(){
+    let drag=false, sx=0, sl=0;
+    limit.addEventListener('mousedown', (e)=>{ drag=true; sx=e.clientX; sl=parseFloat(limit.style.left)||((lenSec*pxPerSec)); e.preventDefault(); });
+    window.addEventListener('mousemove', (e)=>{
+      if(!drag) return;
+      const dx=e.clientX-sx; const rect=wrap.getBoundingClientRect();
+      const nx=Math.max(40, Math.min(rect.width-2, sl+dx));
+      limit.style.left=nx+'px';
+      lenSec = nx / pxPerSec;
+      lenLabel.textContent = fmt(lenSec);
+      layout(); // запази „да се вижда целият таймлайн“
+    });
+    window.addEventListener('mouseup', ()=> drag=false);
+  })();
 
-  // Mapping helpers
-  function stepTimeFromGrid(i, total){ return Math.min(lenSec - 0.001, (i/total)*lenSec); } // позиция от стъпкови индекси
+  window.addEventListener('resize', layout);
+  layout(); lenLabel.textContent = fmt(lenSec);
 
-  // ===== Export/Import =====
-  function exportState(){ return { lenSec, events: events.map(e=> ({...e})) }; }
-  function importState(obj){
-    if(!obj) return;
-    lenSec = Math.max(1, Number(obj.lenSec||10));
-    events.length = 0;
-    const toAdd = Array.isArray(obj.events)? obj.events : [];
-    for(const ev of toAdd){ events.push({...ev}); }
-    drawAxis();
-  }
+  // публични
+  function resetEvents(){ events.length=0; layout(); }
+  function setEvents(newEvents){ events.length=0; newEvents.forEach(e=> events.push(e)); layout(); }
 
-  // public
-  return {
-    play:()=>play(), stop:()=>stop(),
-    addUnique, removeMatch, removeExact,
-    exportState, importState,
-    setLen:(v)=>{ lenSec=Math.max(1,Number(v)||10); drawAxis(); },
-    getLen:()=>lenSec,
-    getLocalTime:()=> playing ? ((Audio.ctx.currentTime - startTime) % lenSec) : 0,
-    stepTimeFromGrid
-  };
+  return { play, stop, setLen:(s)=>{ lenSec=Math.max(3, Number(s)||10); lenLabel.textContent=fmt(lenSec); layout(); }, setEvents, resetEvents, get lenSec(){return lenSec;} };
 })();
 
-/* ===== Запис по действия (а не по звук) ===== */
-const ActionRecord = (()=>{
-  const durForStep = ()=> Math.max(0.12, Arranger.getLen()/UI.stepCount*0.9);
+/* ======= Mirror (само твоите действия -> генерира Arranger евенти) ======= */
+const Mirror = (()=>{
+  // Правило: НИКОГА не дописваме по време на плейбек/луп.
+  // Регенерираме клиповете ЕДНОКРАТНО при действие на потребителя.
 
-  function addChordAtStep(i, replace=false){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    if(replace){ // махни старите chord notes на t
-      Arranger.removeMatch({type:'note', t, lane:'chord'});
+  function syncChordsToArranger(){
+    const bpm = parseInt(UI.bpmEl.value,10);
+    const stepDurSec = (60/bpm) / 2; // 1/8 note
+    const events=[];
+
+    const arpEnabled = UI.arp.arpOn.checked;
+    const arpRate = UI.arp.arpRate.value;
+    const arpDir  = UI.arp.arpDir.value;
+    const arpOct  = parseInt(UI.arp.arpOct.value.replace('×',''),10) || 1;
+    const nrEnabled = UI.arp.nrOn.checked;
+    const nrRate = UI.arp.nrRate.value;
+
+    function parseRate(txt){ const [a,b]=txt.split('/').map(Number); return a/b; }
+    function rateToSec(rate, bpm){ const quarter=60/bpm; const whole=quarter*4; return whole*rate; }
+
+    for(let i=0;i<UI.steps.length;i++){
+      if(!UI.steps[i].classList.contains('on')) continue;
+      const t = i * stepDurSec;
+
+      const chord = UI.chords[i];
+      const freqs = Theory.chordToNotes(chord);
+
+      if(arpEnabled){
+        const seg = rateToSec(parseRate(arpRate), bpm);
+        const count = Math.max(1, Math.floor(stepDurSec/seg));
+        const order = (()=>{
+          // същата функция като в Transport, но тук само за времеви клипове
+          const asc=freqs.slice().sort((a,b)=>a-b);
+          const list=[];
+          for(let oct=0; oct<arpOct; oct++){
+            const mul = Math.pow(2, oct);
+            const base = asc.map(f=> f*mul);
+            if(arpDir==='Up') list.push(...base);
+            else if(arpDir==='Down') list.push(...base.slice().reverse());
+            else if(arpDir==='UpDown'){
+              const up=base, down=base.slice().reverse().slice(1,-1);
+              list.push(...up, ...down);
+            }else if(arpDir==='Random'){
+              const rnd=base.slice(); for(let i=rnd.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [rnd[i],rnd[j]]=[rnd[j],rnd[i]]; }
+              list.push(...rnd);
+            }
+          }
+          return list.length? list : asc;
+        })();
+
+        for(let k=0;k<count;k++){
+          events.push({ t: t + k*seg, dur: Math.max(0.05, seg*0.9), type:'note' });
+        }
+      }else if(nrEnabled){
+        const seg = rateToSec(parseRate(nrRate), bpm);
+        const count = Math.max(1, Math.floor(stepDurSec/seg));
+        for(let k=0;k<count;k++){
+          events.push({ t: t + k*seg, dur: Math.max(0.06, seg*0.9), type:'note' });
+        }
+      }else{
+        events.push({ t, dur: stepDurSec*0.9, type:'note' });
+      }
     }
-    const chord = UI.chords()[i] || "Am";
-    const ns = Theory.chordToNotes(chord);
-    ns.forEach(f=> Arranger.addUnique({type:'note', t, dur:durForStep(), lane:'chord', freq:f}));
-  }
-  function removeChordAtStep(i){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    Arranger.removeMatch({type:'note', t, lane:'chord'});
+
+    Arranger.setEvents(events);
   }
 
-  function addBassAtStep(i, replace=false){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    if(replace) Arranger.removeMatch({type:'bass303', t, lane:'bass303'});
-    const f = Theory.freq(UI.bassNotes()[i].value);
-    Arranger.addUnique({type:'bass303', t, dur:durForStep(), lane:'bass303', freq:f});
-  }
-  function removeBassAtStep(i){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    Arranger.removeMatch({type:'bass303', t, lane:'bass303'});
-  }
-
-  function addWTAtStep(i, replace=false){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    if(replace) Arranger.removeMatch({type:'wt', t, lane:'wt'});
-    const f = Theory.freq(UI.wtNotes()[i].value);
-    Arranger.addUnique({type:'wt', t, dur:durForStep(), lane:'wt', freq:f});
-  }
-  function removeWTAtStep(i){
-    const t = Arranger.stepTimeFromGrid(i, UI.stepCount);
-    Arranger.removeMatch({type:'wt', t, lane:'wt'});
-  }
-
-  return { addChordAtStep, removeChordAtStep, addBassAtStep, removeBassAtStep, addWTAtStep, removeWTAtStep };
+  return { syncChordsToArranger };
 })();
 
-/* ===== TL controls ===== */
+/* ======= Wire up buttons ======= */
 document.getElementById('startBtn').addEventListener('click', ()=> Transport.start());
-document.getElementById('stopBtn').addEventListener('click', ()=> Transport.stop());
+document.getElementById('stopBtn').addEventListener('click',  ()=> Transport.stop());
 document.getElementById('arrPlay').addEventListener('click', ()=> Arranger.play());
 document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop());
 
-/* ===== Splitter ===== */
-(function Splitter(){
-  const layout = document.getElementById('layout');
-  const splitter = document.getElementById('splitter');
-  let dragging=false, startX=0, startLeft=0;
-  function apply(leftFrac){ leftFrac = Math.max(0.2, Math.min(0.8, leftFrac)); const rightFrac = 1-leftFrac; layout.style.setProperty('--left', leftFrac+'fr'); layout.style.setProperty('--right', rightFrac+'fr'); }
-  function getRatio(){ const l = getComputedStyle(layout).getPropertyValue('--left'); const r = getComputedStyle(layout).getPropertyValue('--right'); const lf = parseFloat(l)||1.15, rf = parseFloat(r)||.85; return lf/(lf+rf); }
-  splitter.addEventListener('mousedown', (e)=>{ dragging=true; startX=e.clientX; document.body.style.userSelect='none'; startLeft = getRatio(); });
-  window.addEventListener('mousemove', (e)=>{ if(!dragging) return; const rect = layout.getBoundingClientRect(); const dx = e.clientX - startX; const newPxLeft = Math.max(140, Math.min(rect.width-140, (rect.width-6)*startLeft + dx)); const leftFrac = newPxLeft / (rect.width-6); apply(leftFrac); });
-  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; document.body.style.userSelect=''; Settings.queueSave(); } });
-  window.Splitter = { setRatio: (leftFrac)=> apply(leftFrac), getRatio };
-})();
-
-/* ===== Диагонален скейл ===== */
-(function DiagScale(){
-  const handle = document.getElementById('diagSizer');
-  let dragging=false, startX=0, startY=0, startScale=1;
-  function apply(s){ s = Math.max(0.7, Math.min(1.3, s)); document.documentElement.style.setProperty('--uiScale', s); }
-  handle.addEventListener('mousedown', (e)=>{ dragging=true; startX=e.clientX; startY=e.clientY; startScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uiScale'))||1; document.body.style.userSelect='none'; });
-  window.addEventListener('mousemove', (e)=>{ if(!dragging) return; const dx = e.clientX - startX, dy = e.clientY - startY; const delta = (dx + dy)/600; apply(startScale + delta); });
-  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; document.body.style.userSelect=''; Settings.queueSave(); } });
-  window.DiagScale = { set:(s)=>apply(s), get:()=> parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uiScale'))||1 };
-})();
-
-/* ===== Dynamic pages (мобилен навигация) ===== */
-(function Pages(){
-  const buttons = [...document.querySelectorAll('.top-tabs [data-page]'), ...document.querySelectorAll('.mobile-nav [data-page]')];
-  function setPage(p){ document.body.setAttribute('data-page', p); buttons.forEach(b=> b.classList.toggle('active', b.dataset.page===p)); Settings.queueSave(); }
-  buttons.forEach(b=> b.addEventListener('click', ()=> setPage(b.dataset.page)));
-  setPage(document.body.getAttribute('data-page')||'studio');
-})();
-
-/* ===== Recorder (оставен, не променям логиката тук) ===== */
-(function Recorder(){
-  const status = document.getElementById('recStatus'); if(!status) return; // в този файл го няма – защитно
-})();
-
-/* ===== Settings (запазва всичко, включително новата логика) ===== */
-const Settings = (()=>{
-  const KEY='stepSequencerState_actions_v1';
-  const ids = ['bpm','armTl','masterVol','chorusMix','cutoff','reso','b303Vol','b303Reso','b303Slide','b303Accent','wtVol','wtMorph','wtHold'];
-  window.__b303Reso=8; window.__b303Slide=0.06; window.__b303Accent=0.35;
-  let saveTimer=null; function queueSave(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(saveNow, 150); }
-  function collect(){
-    const state = {
-      version:1, page: document.body.getAttribute('data-page')||'studio',
-      stepCount: UI.stepCount,
-      steps: UI.steps().map(el=> el.classList.contains('on')),
-      chords: UI.chords().slice(),
-      bassSteps: UI.bassSteps().map(c=> c.classList.contains('on')),
-      bassNotes: UI.bassNotes().map(s=> s.value),
-      wtSteps: UI.wtSteps().map(c=> c.classList.contains('on')),
-      wtNotes: UI.wtNotes().map(s=> s.value),
-      drums: UI.drumPattern.grid.map(r=> r.slice()),
-      inputs: {},
-      arranger: Arranger.exportState(),
-      uiScale: DiagScale.get(),
-      splitter: Splitter.getRatio()
-    };
-    ids.forEach(id=>{ const el=document.getElementById(id); if(el) state.inputs[id] = (el.type==='checkbox') ? el.checked : parseFloat(el.value); });
-    return state;
-  }
-  function apply(state){
-    if(!state) return;
-    if(state.page){ document.body.setAttribute('data-page', state.page); document.querySelectorAll('[data-page]').forEach(b=> b.classList.toggle('active', b.dataset.page===state.page)); }
-    if(typeof state.uiScale==='number'){ DiagScale.set(state.uiScale); }
-    if(typeof state.stepCount==='number'){ UI.stepCount = state.stepCount; }
-    if(Array.isArray(state.steps)) state.steps.forEach((on,i)=> UI.steps()[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.chords)) state.chords.forEach((v,i)=>{ const sel=document.getElementById('chordsSelects').children[i]; if(sel){ sel.value=v; UI.chords()[i]=v; }});
-    if(Array.isArray(state.bassSteps)) state.bassSteps.forEach((on,i)=> UI.bassSteps()[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.bassNotes)) state.bassNotes.forEach((val,i)=>{ const s=UI.bassNotes()[i]; if(s) s.value=val; });
-    if(Array.isArray(state.wtSteps)) state.wtSteps.forEach((on,i)=> UI.wtSteps()[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.wtNotes)) state.wtNotes.forEach((val,i)=>{ const s=UI.wtNotes()[i]; if(s) s.value=val; });
-    if(Array.isArray(state.drums)){ UI.drumPattern.grid = state.drums.map(r=> r.slice()); document.getElementById('drumGrid').innerHTML=''; (function rebuildDrums(){ const g=document.getElementById('drumGrid'); const names=["Kick","Snare","Hat","Clap"]; for(let r=0;r<4;r++){ const name=document.createElement('div'); name.textContent=names[r]; name.style.cssText='display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#9fadc1;font-size:12px;'; g.appendChild(name); for(let c=0;c<16;c++){ const cell=document.createElement('div'); cell.style.cssText='aspect-ratio:1/1;border:1px solid #24324a;border-radius:8px;background:linear-gradient(180deg,#0e1726,#0b1422);cursor:pointer;'; if(state.drums[r][c]){ cell.classList.add('on'); cell.style.background='linear-gradient(180deg,#183456,#14253f)'; cell.style.borderColor='#2b84c8'; } cell.addEventListener('click',()=>{ cell.classList.toggle('on'); UI.drumPattern.grid[r][c]=cell.classList.contains('on'); const t = Arranger.stepTimeFromGrid(c,16); if(cell.classList.contains('on')) Arranger.addUnique({type:'drums', t, dur:0.1, lane:'drums', label:names[r]}); else Arranger.removeMatch({type:'drums', t, lane:'drums', label:names[r]}); queueSave(); }); g.appendChild(cell); } } g.style.gridTemplateColumns='100px repeat(16, 1fr)'; })(); }
-    if(state.inputs){ Object.entries(state.inputs).forEach(([id,val])=>{ const el=document.getElementById(id); if(!el) return; if(el.type==='checkbox'){ el.checked=!!val; } else { el.value=(typeof val==='number')? String(val) : val; el.dispatchEvent(new Event('input')); } }); document.getElementById('bpmVal').textContent = document.getElementById('bpm').value; }
-    if(state.arranger){ Arranger.importState(state.arranger); }
-    if(typeof state.splitter==='number'){ Splitter.setRatio(state.splitter); }
-  }
-  function saveNow(){ try{ const s=collect(); localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){ console.warn('Save failed', e); } }
-  function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) { Arranger.setLen(10); return; } const s=JSON.parse(raw); apply(s); }catch(e){ console.warn('Load failed', e); } }
-  function reset(){ localStorage.removeItem(KEY); location.reload(); }
-  return { queueSave, saveNow, load, reset };
-})();
-
-/* ==== Bindings & init ==== */
-document.getElementById('saveSettings').addEventListener('click', ()=> Settings.saveNow());
-document.getElementById('resetSettings').addEventListener('click', ()=> Settings.reset());
-window.addEventListener('beforeunload', ()=> Settings.saveNow());
-window.addEventListener('DOMContentLoaded', ()=> Settings.load());
-
-/* Mixer & synth params -> audio only */
-document.getElementById('masterVol').addEventListener('input', e=> { Audio.setMasterVol(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('chorusMix').addEventListener('input', e=> { Audio.setChorusMix(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('cutoff').addEventListener('input', e=> { Audio.setFilterCutoff(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('reso').addEventListener('input', e=> { Audio.setFilterQ(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('bpm').addEventListener('input', e=> { document.getElementById('bpmVal').textContent=e.target.value; Settings.queueSave(); });
-document.getElementById('b303Vol')?.addEventListener('input', e=> { Audio.B303.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('b303Reso')?.addEventListener('input', e=> { window.__b303Reso=parseFloat(e.target.value); Settings.queueSave(); });
-document.getElementById('b303Slide')?.addEventListener('input', e=> { window.__b303Slide=parseFloat(e.target.value); Settings.queueSave(); });
-document.getElementById('b303Accent')?.addEventListener('input', e=> { window.__b303Accent=parseFloat(e.target.value); Settings.queueSave(); });
-document.getElementById('wtVol')?.addEventListener('input', e=> { Audio.WT.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('wtMorph')?.addEventListener('input', e=> { Audio.WT.setMorph(parseFloat(e.target.value)); Settings.queueSave(); });
-document.getElementById('wtHold')?.addEventListener('input', e=> { Audio.WT.setHold(parseFloat(e.target.value)); Settings.queueSave(); });
+// първоначално попълване на Arranger от текущите настройки
+Mirror.syncChordsToArranger();
 </script>
 </body>
 </html>
