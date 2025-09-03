@@ -1,2739 +1,384 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>J6-Synth – Arp + Patches + Note-Repeat + BG</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stable Music Studio — TL+Transport + Bass303 + Wavetable + Recorder</title>
 <style>
-
-/* --- Custom edits: hide bottom performance timeline and its zoom UI; keep everything else --- */
-#performanceTracks{display:none !important;}
-#perfZoom{display:none !important;}
-.arrangementTracks + div:has(#perfZoom){display:none !important;}
-
-/* ---- KEEP bottom performance timeline, hide only top arrangement ---- */
-#arrangementTracks{display:none !important;}
-#arrPlayhead{display:none !important;}
-/* Zoom will scale performance timeline step width */
-:root{ --perfStepWidth: 20px; }
-
   :root{
-    --bg:#0e0e0e;--panel:#1f1f1f;--panel2:#1a1a1a;--text:#f2f2f2;--muted:#c9c9c9;
-    --accent:#ff6a00;--pad:#2b2b2b;--border:#3a3a3a
+    --bg:#0b0f14; --panel:#121926; --panel-2:#0f1623; --text:#e7eef7; --muted:#8aa0b7;
+    --accent:#4cc9f0; --red:#ff3b30; --grid:#1c2535;
   }
-  html,body{height:100%;margin:0;color:var(--text);font-family:Segoe UI,Roboto,Arial,sans-serif}
-  /* Background image + overlay */
-  body{
-    background:url("Screenshot 2025-08-28 091734.jpg") no-repeat center center fixed;
-    background-size:cover; position:relative;
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0b0f14,#0a0d12);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.03);backdrop-filter: blur(6px);position:sticky;top:0;z-index:6;border-bottom:1px solid #101624}
+  h1{font-size:16px;margin:0;color:var(--text);opacity:.95;font-weight:700}
+  .badge{font-size:11px;padding:3px 8px;border-radius:999px;background:linear-gradient(180deg,#122338,#0e1a2b);border:1px solid #1f2a3e;color:var(--muted)}
+  main{display:grid;grid-template-columns: 1.15fr .85fr;gap:14px;padding:14px}
+  @media (max-width: 980px){ main{grid-template-columns:1fr} }
+  .panel{background:var(--panel);border:1px solid #162033;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden}
+  .panel h2{font-size:13px;margin:0;padding:10px 12px;border-bottom:1px solid #17253a;background:linear-gradient(180deg,#121b2a,#0f1827);color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+  .row{display:flex;gap:10px;flex-wrap:wrap;padding:12px}
+  .control{display:flex;flex-direction:column;gap:6px;min-width:120px}
+  .control label{font-size:12px;color:var(--muted)}
+  .btn{appearance:none;border:1px solid #1c2a40;background:linear-gradient(180deg,#152032,#0f1827);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;transition:transform .05s ease,box-shadow .2s}
+  .btn:hover{box-shadow:0 4px 16px rgba(76,201,240,.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,#1f2c45,#16243b);border-color:#274260}
+  .btn.danger{border-color:#4b1f27;background:linear-gradient(180deg,#3a1217,#2a0f13);color:#ffd7db}
+  input, select{background:#0c1320;border:1px solid #1b2942;color:var(--text);padding:8px;border-radius:10px;outline:none}
+  select{min-width:120px}
+  .kbd{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1726;border:1px solid #1c2a42;border-radius:6px;padding:2px 6px;color:#a9c0db}
+  /* step timeline */
+  .timeline{padding:12px;display:grid;gap:10px}
+  .barLabels{display:flex;justify-content:space-between;font-size:11px;color:#7e91a9;padding:0 4px}
+  .steps{display:grid;grid-template-columns: repeat(8, 1fr);gap:8px;position:relative;background:var(--panel-2);padding:10px;border-radius:12px;border:1px solid #1a263b}
+  .step{aspect-ratio:1.6/1;border-radius:10px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer;user-select:none;transition:all .15s}
+  .step.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
+  .playhead{position:absolute;top:8px;bottom:8px;width:3px;background:var(--red);border-radius:2px;box-shadow:0 0 6px rgba(255,59,48,.8);transform:translateX(-1px);pointer-events:none}
+  .gridline{position:absolute;top:8px;bottom:8px;width:1px;background:#1e2a3d;opacity:.7}
+  .laneTitle{font-size:12px;color:#96a8c0;margin-top:2px}
+  .lane{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
+  .lane .name{color:#9fb3cd;font-size:12px;text-align:right;padding-right:6px}
+  .lane .cells{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+  .cell{aspect-ratio:1.6/1;border-radius:8px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer}
+  .cell.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
+  .noteRow{display:grid;grid-template-columns:120px repeat(8,1fr);gap:8px}
+  .noteRow .name{color:#9fb3cd;text-align:right;padding-right:6px}
+  .noteRow select{width:100%}
+
+  /* Arranger (multi-lane) */
+  .arranger{padding:12px;border-top:1px solid #17253a;background:linear-gradient(0deg,#0e1624,#0f1a2a)}
+  .arr-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .arr-toolbar .len{font-size:12px;color:var(--muted)}
+  .arr-wrap{position:relative;border:1px solid #1a263b;border-radius:12px;background:var(--panel-2);height:210px;overflow:hidden}
+  .arr-axis{position:absolute;left:0;right:0;top:0;height:18px;color:#7e91a9;font-size:10px;padding:2px 6px;display:flex;gap:12px;align-items:center}
+  .arr-track{position:absolute;left:0;right:0;top:18px;bottom:0}
+  .arr-event{position:absolute;height:18px;border:1px solid #2a4270;border-radius:6px;background:linear-gradient(180deg,#163055,#102137);color:#cfe6ff;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none}
+  .arr-event.note{background:linear-gradient(180deg,#1a3a66,#11253d)}
+  .arr-event.bass303{background:linear-gradient(180deg,#664a1a,#3d2a11)}
+  .arr-event.wt{background:linear-gradient(180deg,#3a1a66,#24113d)}
+  .arr-event.drums{background:linear-gradient(180deg,#1a663d,#113d25)}
+  .arr-event.pad{background:linear-gradient(180deg,#66401a,#3d2711)}
+  .arr-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--red);box-shadow:0 0 6px rgba(255,59,48,.8);pointer-events:none}
+  .arr-limit{position:absolute;top:0;bottom:0;width:6px;background:linear-gradient(180deg,#22314b66,#1a2238cc);border-left:2px dashed #375a86;cursor:ew-resize}
+  .laneLabel{position:absolute;left:6px;font-size:10px;color:#97a8c0;opacity:.9}
+  .laneGrid{position:absolute;left:0;right:0;height:18px;border-bottom:1px solid #1b2a40}
+  .inline-help{font-size:12px;color:#8aa0b7;padding:0 12px 10px}
+  .footer{padding:10px 14px;color:#7c8ea6;border-top:1px solid #17253a;font-size:12px;background:linear-gradient(180deg,#101724,#0e1623)}
+
+  /* ==== Mobile/responsive tweaks (no logic / no UI removal) ==== */
+  .timeline{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #drumGrid{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .steps, #bassCells, #wtCells{ min-width: 560px; }
+  #drumGrid{ min-width: 960px; }
+  .pads, .pad-tools{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .pads{ min-width: 360px; }
+  header{ flex-wrap: wrap; }
+  .badge{ margin-top: 4px; }
+  .row{ row-gap: 10px; }
+  .control{ flex: 1 1 220px; min-width: 160px; }
+  @media (max-width: 720px){
+    main{ grid-template-columns:1fr; }
+    .control{ flex: 1 1 calc(50% - 10px); min-width: calc(50% - 10px); }
+    .panel h2{ font-size:12px; padding:8px 10px; }
+    .arr-wrap{ height: 180px; }
   }
-  body::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:0}
-  .wrap{display:flex;align-items:center;justify-content:center;min-height:100%;padding:18px;position:relative;z-index:1}
-.device{width:min(1180px,96vw);background:transparent; border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.55);padding:18px;position:relative}
-  .header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px}
-  .title{font-weight:700}
-  .display{font-family:monospace;font-size:28px;background:#0a0a0a;color:#ff3b30;border-radius:10px;padding:6px 10px;min-width:110px;text-align:right}
-  .cols{display:grid;grid-template-columns:2fr 1.15fr;gap:14px}
-  @media (max-width: 980px){.cols{grid-template-columns:1fr}}
-  .panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px}
-
-  /* LEFT column */
-  #chordSteps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-  .step{flex:0 0 56px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:var(--pad);cursor:pointer;transition:transform .08s ease}
-  .step.active{outline:2px solid var(--accent)}
-  .step.bar1{box-shadow:0 0 0 2px rgba(255,106,0,.28) inset;}
-
-  .controls{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  .control{background:#151515;border:1px solid var(--border);border-radius:10px;padding:10px}
-  .control label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-  .control input[type=range], .control select, .control input[type=number]{width:100%}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-  .pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:10px}
-  .pad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
-  .pad small{display:block;color:var(--muted)}
-  .pad.selected{outline:2px solid var(--accent)}
-
-  /* RIGHT column – Drum Machine with labels */
-  .drumHead{font-weight:700;margin-bottom:8px}
-  .drumRow{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin-bottom:6px}
-  .drumLabel{color:var(--muted);font-size:12px;text-align:right;padding-right:4px;user-select:none;cursor:default}
-  .drumGridRow{display:grid;grid-template-columns:repeat(16,1fr);gap:6px}
-  .drumCell{height:28px;border-radius:6px;background:#2a2a2a;border:1px solid var(--border);cursor:pointer;transition:transform .08s ease}
-  .drumCell.beat1{border-color:#e58a3c;}
-  .drumCell.active{background:var(--accent)}
-  /* Accent style for drum steps */
-  .drumCell.accent{box-shadow:0 0 0 2px var(--accent) inset;}
-
-  /* Timeline */
-  .timelineWrap{margin-top:14px}
-  #timeline{width:100%;height:110px;display:block;background:#141414;border:1px solid var(--border);border-radius:10px}
-  .tlHelp{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
-
-  /* Transport (+Undo) */
-  .transport{display:grid;grid-template-columns:1.1fr 1fr 1fr .9fr .9fr .9fr .9fr;gap:12px;margin-top:14px}
-  .btn{background:#2b2b2b;border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--text);cursor:pointer;text-align:center;user-select:none;transition:transform .08s ease, filter .08s ease}
-  .btn.primary{background:var(--accent);color:#111;border-color:#e45f00}
-  .btn:disabled{opacity:.55;cursor:not-allowed}
-
-  /* Modal (общ стил) */
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:20}
-  .card{background:#1b1b1b;border:1px solid var(--border);border-radius:14px;padding:14px;max-width:900px;width:92%}
-  .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:60vh;overflow:auto}
-  .grid .pad{min-width:0}
-
-  /* Patch browser */
-  .patchGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:62vh;overflow:auto}
-  .patch{background:#161616;border:1px solid var(--border);border-radius:12px;padding:10px}
-  .patch h4{margin:0 0 6px 0}
-  .patch p{margin:0 0 8px 0;color:var(--muted);font-size:12px}
-  .patch .rowBtns{display:flex;gap:8px}
-  .tag{display:inline-block;background:#222;border:1px solid #333;color:#ccc;border-radius:8px;padding:2px 7px;font-size:11px;margin-right:4px}
-
-  /* Press feedback */
-  .press{transform:scale(.98);filter:brightness(1.1)}
-
-  /* Arrangement (multi‑track arranger) */
-  .arrangementTracks{margin-top:20px;background:#121212;border:1px solid var(--border);border-radius:10px;overflow-x:auto;position:relative;padding-bottom:16px}
-  .arrTrack{display:flex;border-bottom:1px solid #2a2a2a;min-height:50px;position:relative}
-  .arrTrack:last-child{border-bottom:none}
-  .arrTrackLabel{width:80px;padding:6px 4px;display:flex;align-items:center;justify-content:flex-end;color:var(--muted);font-size:12px;text-transform:uppercase;user-select:none;padding-right:8px}
-  .arrTrackRow{position:relative;flex:1}
-  .arrClip{position:absolute;top:8px;height:34px;border-radius:6px;border:1px solid var(--border);color:#111;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:grab}
-  .arrClip:active{cursor:grabbing}
-  .arrAddClip{position:absolute;top:8px;height:34px;width:40px;right:0;padding:0;border-radius:6px;background:var(--accent);color:#111;border:none;cursor:pointer;font-size:16px;line-height:34px;text-align:center}
-  .arrPlayhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);pointer-events:none;z-index:10}
-
-  /* Tempo slider (top-right) */
-  .tempoSlider{ width:180px; vertical-align:middle; }
-  @media (max-width: 720px){ .tempoSlider{ width:140px; } }
-
-  /* === Added styles for Drum Rack and Macros === */
-  /* Drum rack grid layout: 4 columns of pads */
-  .drumRackGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
-  /* Individual pad styling */
-  .drumRackPad{background:var(--pad);border:1px solid var(--border);border-radius:12px;padding:18px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
-  .drumRackPad.active{outline:2px solid var(--accent)}
-  .drumRackPad.accent{box-shadow:0 0 0 2px var(--accent) inset}
-  .drumRackPad small{display:block;color:var(--muted);font-size:11px}
-
-  /* === Additional instrument group styling === */
-  .instrGroup{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
-  .noteGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:6px}
-  .noteBtn{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:8px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
-  .noteBtn:active{transform:scale(0.96)}
-  .noteBtn.selected{outline:2px solid var(--accent)}
-  .mpcGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
-  .mpcPad{background:var(--pad);border:1px solid var(--border);border-radius:8px;padding:20px 0;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease}
-  .mpcPad.selected{outline:2px solid var(--accent)}
-  .mpcPad:active{transform:scale(0.96)}
-  /* Mark pad with loaded sample and show small delete (X) */
-  .mpcPad.has-sample{ outline:2px solid var(--accent); position:relative; }
-  .mpcPad .del{
-    position:absolute; top:4px; right:6px; font-size:12px;
-    background:#000a; border:1px solid var(--border); border-radius:8px;
-    padding:0 6px; line-height:18px; cursor:pointer; display:none;
+  @media (max-width: 450px){
+    .control{ flex:1 1 100%; min-width:100%; }
+    .steps, #bassCells, #wtCells{ min-width: 620px; }
+    #drumGrid{ min-width: 1040px; }
+    h1{ font-size:14px; }
   }
-  .mpcPad.has-sample .del{ display:block; }
+  .panel{ overflow: hidden; }
+  .timeline, #drumGrid, .pads, .pad-tools{ padding-bottom: 6px; }
+  input[type="range"], select, button{ touch-action: manipulation; }
 
+  @media (max-width: 980px){
+    main{ grid-template-columns:1fr !important; gap:12px !important; }
+    header{ flex-wrap:wrap; row-gap:6px; }
+    .row{ row-gap:10px; }
+    .control{ flex:1 1 46% !important; min-width: 46% !important; }
+    .timeline{ overflow-x:visible !important; }
+    .steps, .lane .cells, .noteRow{ min-width: auto !important; }
+    .steps{ gap:6px !important; padding:8px !important; }
+    .step{ aspect-ratio: 1.12/1 !important; }
+    .lane .cells{ gap:6px !important; }
+    .cell{ aspect-ratio: 1.12/1 !important; }
+    .noteRow{ gap:6px !important; }
+    #drumGrid{ min-width:auto !important; grid-template-columns: 72px repeat(16, 1fr) !important; }
+    #drumGrid > div{ min-width: 0 !important; }
+    .pads, .pad-tools{ min-width:auto !important; grid-template-columns: repeat(4, 1fr) !important; }
+    .pad{ min-width: 0 !important; }
+    .arr-wrap{ height: 180px !important; }
+  }
+  @media (max-width: 420px){
+    .control{ flex: 1 1 100% !important; min-width: 100% !important; }
+    .steps{ gap:4px !important; }
+    .step{ aspect-ratio: 1.0/1 !important; }
+    .lane .cells{ gap:4px !important; }
+    .cell{ aspect-ratio: 1.0/1 !important; }
+    #drumGrid{ grid-template-columns: 60px repeat(16, 1fr) !important; gap:4px !important; }
+  }
+  input[type="range"], select, button { touch-action: manipulation; }
 
+  @media (max-width:980px){
+    .panel{ overflow: visible !important; }
+    .timeline{ overflow: visible !important; }
+    body .steps{ display:grid !important; grid-template-columns: repeat(8, minmax(0,1fr)) !important; gap:8px !important; padding:8px !important; min-width:auto !important; }
+    body .steps .step{ display:flex !important; align-items:center !important; justify-content:center !important; height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
+    body .lane{ grid-template-columns:72px 1fr !important; }
+    body .lane .cells{ display:grid !important; grid-template-columns: repeat(8, minmax(0,1fr)) !important; gap:8px !important; min-width:auto !important; }
+    body .lane .cells .cell{ display:flex !important; align-items:center !important; justify-content:center !important; height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
+    body .noteRow{ grid-template-columns:72px repeat(8, minmax(0,1fr)) !important; gap:8px !important; min-width:auto !important; }
+    body .noteRow select{ min-width:0 !important; width:100% !important; }
+    body #drumGrid{ grid-template-columns:64px repeat(16, minmax(0,1fr)) !important; gap:6px !important; min-width:auto !important; }
+    body #drumGrid > div{ min-height:44px !important; }
+    body .pads{ grid-template-columns: repeat(4, 1fr) !important; gap:10px !important; }
+    body .pads .pad{ display:flex !important; align-items:center !important; justify-content:center !important; height:84px !important; min-height:84px !important; aspect-ratio:auto !important; }
+  }
+  @media (max-width:420px){
+    body .pads{ grid-template-columns: repeat(2, 1fr) !important; }
+    body #drumGrid{ grid-template-columns:56px repeat(16, minmax(0,1fr)) !important; gap:4px !important; }
+    body .steps .step, body .lane .cells .cell{ height:38px !important; min-height:38px !important; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap"><div class="device">
-  <div class="header">
-    <div class="title">J6-Synth</div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <button class="btn" id="openPatches" title="Отвори Patch/Bank browser">Patches</button>
-      <div class="display" id="tempo" title="Темпо – скорост (скрол за промяна, 40–200 BPM)">120.0</div>
-      <input id="tempoSlider" class="tempoSlider" type="range" min="40" max="200" step="0.1" value="120"
-             title="Tempo slider (40–200 BPM)" />
+<header>
+  <h1>Stable Music Studio</h1>
+  <span class="badge">Multi-lane Arranger</span>
+  <span class="badge">Recorder: WAV / WebM</span>
+</header>
 
-    </div>
-  </div>
-
-  <div class="cols">
-    <!-- LEFT: Chords, Synth, Arpeggiator -->
-    <div class="panel">
-      <div id="chordSteps" title="Стъпки (1–8) – задавай акорд на всяка стъпка"></div>
-      <!-- Button to add more chord steps dynamically -->
-      <button id="addStep" class="btn" style="margin-top:6px;margin-bottom:6px;padding:6px 12px;font-size:12px;background:var(--accent);color:#111;border:none" title="Добави нова стъпка за акорд">+ Step</button>
-      <!-- Selector for choosing the current chord step when direct clicking is not available -->
-      <div class="control" style="margin-bottom:6px;width:120px">
-        <label>Текуща стъпка</label>
-        <input id="stepSelect" type="number" min="1" max="32" value="1" style="width:100%" title="Избери стъпка за редакция">
-      </div>
-
-      <div class="controls" style="margin-top:8px">
-        <div class="control"><label>Filter</label><input id="flt" type="range" min="100" max="8000" value="1500" title="Изрязва високите честоти (по-ниско = по-мътен звук)"></div>
-        <div class="control"><label>Envelope</label><input id="env" type="range" min="0" max="1" step="0.01" value="0.35" title="Колко дълго звучи акорда"></div>
-        <div class="control"><label>Delay</label><input id="dly" type="range" min="0" max="1" step="0.01" value="0.2" title="Ехо ефект"></div>
-        <div class="control" style="grid-column:1/-1"><label>Reverb</label><input id="rev" type="range" min="0" max="1" step="0.01" value="0.25" title="Звучене в зала/пространство"></div>
-      </div>
-
-      <div class="row">
-        <div class="control"><label>Style</label>
-          <select id="style" style="background:#202020;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px" title="Chord=цял акорд; Arp/Strum=вариации">
-            <option>Chord</option><option>Arp Up</option><option>Arp Down</option><option>Random</option><option>Strum Up</option><option>Strum Down</option>
-          </select>
-        </div>
-        <div class="control"><label>Variation</label><input id="var" type="range" min="0" max="1" step="0.01" value="0.5" title="Скорост/разпределение на нотите при Style"></div>
-      </div>
-
-      <!-- Key & Scale selection for chord pads -->
-      <div class="row" style="margin-top:8px">
-        <div class="control"><label>Key</label>
-          <select id="keySel">
-            <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
-            <option>F</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
-            <option>Bb</option><option>B</option>
-          </select>
-        </div>
-        <div class="control"><label>Scale</label>
-          <select id="scaleSel">
-            <option>Major</option><option>Minor</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Arpeggiator -->
-      <div class="controls" style="margin-top:8px">
-        <div class="control" title="Включва/изключва арпежиатор"><label>Arp On</label><input id="arpOn" type="checkbox"></div>
-        <div class="control" title="Колко ноти на такт"><label>Arp Rate</label>
-          <select id="arpRate">
-            <option value="4">1/4</option><option value="8" selected>1/8</option>
-            <option value="16">1/16</option><option value="32">1/32</option>
-          </select>
-        </div>
-        <div class="control" title="Посока на арпежиото"><label>Arp Direction</label>
-          <select id="arpDir"><option>Up</option><option>Down</option><option selected>UpDown</option><option>Random</option></select>
-        </div>
-        <div class="control" title="Диапазон в октави"><label>Arp Octaves</label><input id="arpOct" type="number" min="1" max="4" value="2"></div>
-        <div class="control" style="grid-column:1/-1" title="Дължина на нотата (затихване)"><label>Arp Gate</label><input id="arpGate" type="range" min="0.15" max="0.95" step="0.01" value="0.6"></div>
-      </div>
-
-      <div class="pads" id="pads" title="Бързи акорди – клик за добавяне към избраната стъпка"></div>
-
-      <!-- Timeline / Seek bar -->
-      <div class="timelineWrap">
-        <canvas id="timeline" title="Клик = мести; Drag = скрубин; Двоен клик = начало"></canvas>
-        <div class="tlHelp"><span>Клик за преместване на playhead</span><span>Плъзгане = скрубин | Двоен клик = Reset</span></div>
-      </div>
-
-      <!-- Drum volumes -->
-      <div class="row" style="margin-top:10px">
-        <div class="control"><label>Kick Vol</label><input id="kickVol" type="range" min="0" max="1" step="0.01" value="0.9" title="Сила на бас барабана"></div>
-        <div class="control"><label>Snare Vol</label><input id="snareVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Сила на малкия барабан"></div>
-        <div class="control"><label>CHH Vol</label><input id="chhVol" type="range" min="0" max="1" step="0.01" value="0.25" title="Сила на затворения hi-hat"></div>
-        <div class="control"><label>OHH Vol</label><input id="ohhVol" type="range" min="0" max="1" step="0.01" value="0.4" title="Сила на отворения hi-hat"></div>
-      </div>
-
-      <!-- Advanced Synth & FX controls -->
-      <div class="controls" style="margin-top:10px" id="advControls">
-        <div class="control"><label>Swing</label><input id="swing" type="range" min="0" max="0.65" step="0.01" value="0" title="Groove swing (0–65%)"></div>
-        <div class="control"><label>Drive</label><input id="drive" type="range" min="0" max="1" step="0.01" value="0" title="Saturation / Drive amount"></div>
-        <div class="control"><label>LFO Rate</label><input id="lfoRate" type="range" min="0.1" max="10" step="0.1" value="0.5" title="Filter LFO rate (Hz)"></div>
-        <div class="control"><label>LFO Depth</label><input id="lfoDepth" type="range" min="0" max="2000" step="10" value="0" title="Filter LFO depth (Hz)"></div>
-        <div class="control"><label>LFO Shape</label><select id="lfoShape" title="Filter LFO waveform"><option>sine</option><option>triangle</option><option>square</option><option>sawtooth</option></select></div>
-        <div class="control"><label>Chorus Rate</label><input id="chorusRate" type="range" min="0.1" max="10" step="0.1" value="5" title="Chorus rate (Hz)"></div>
-        <div class="control"><label>Chorus Width</label><input id="chorusWidth" type="range" min="0" max="10" step="0.1" value="3" title="Chorus width (detune)"></div>
-        <div class="control"><label>Sidechain</label><input id="duckAmt" type="range" min="0" max="0.9" step="0.01" value="0" title="Sidechain duck amount"></div>
-        <div class="control"><label>Humanize</label><input id="humanize" type="range" min="0" max="0.5" step="0.01" value="0" title="Humanize amount (timing & velocity)"></div>
-        <div class="control"><label>Loop A</label><input id="loopA" type="number" min="1" max="16" value="1" title="Loop start step (1-16)"></div>
-        <div class="control"><label>Loop B</label><input id="loopB" type="number" min="1" max="16" value="16" title="Loop end step (1-16)"></div>
-      </div>
-    </div>
-
-    <!-- RIGHT: Drum Machine (с етикети + Note-Repeat) -->
-    <div class="panel">
-      <div class="drumHead">Drum Machine</div>
-
-      <!-- Note-Repeat mini panel -->
-      <div class="row" style="grid-template-columns:1fr 1fr; margin:0 0 8px 0">
-        <div class="control" title="Вкл/изкл Note-Repeat (ролики)">
-          <label>Note-Repeat</label>
-          <input id="nrOn" type="checkbox" checked>
-        </div>
-        <div class="control" title="Rate за Note-Repeat (докато държиш върху етикета на реда)">
-          <label>NR Rate</label>
-          <select id="nrRate"><option value="8">1/8</option><option value="16" selected>1/16</option><option value="32">1/32</option></select>
-        </div>
-      </div>
-
-      <div id="drumGridContainer" title="Kick=бас барабан, Snare=малък барабан, CHH=затворен hi-hat, OHH=отворен hi-hat"></div>
-      <div style="color:var(--muted);font-size:12px;margin-top:8px">
-        Клик по клетка = включи/изключи удар. <b>Note-Repeat:</b> задръж върху етикета (Kick/Snare/CHH/OHH), за да чуеш ролики по избрания NR Rate.
-      </div>
-      <!-- Note-Repeat latch control -->
-      <div class="row" style="grid-template-columns:1fr; margin:0 0 8px 0">
-        <div class="control" title="Латч за Note-Repeat – превключва постоянно повтаряне">
-          <label>NR Latch</label>
-          <input id="nrLatch" type="checkbox">
-        </div>
-      </div>
-    
-<div class="panel" id="drumRackPanel" style="grid-column:1/-1">
-      <div class="drumHead">Drum Rack</div>
-      <div class="row" style="grid-template-columns:1fr 1fr; margin-bottom:8px">
-        <div class="control"><label>Kit</label>
-          <select id="drumKit">
-            <option>Lo-Fi</option><option>Hip-Hop</option><option>House</option><option>Techno</option>
-          </select>
-        </div>
-        <div class="control"><label>Load Samples</label>
-          <input type="file" id="sampleLoader" multiple accept="audio/*">
-        </div>
-      </div>
-      <div id="drumRackGrid" class="drumRackGrid"></div>
-      <div style="color:var(--muted);font-size:12px;margin-top:6px">
-        Click pads to play. Alt/Option‑click toggles accent. Drag & drop files or use Load Samples to assign your own sounds.
-      </div>
-    </div>
-
-<div class="panel" id="macrosPanel" style="grid-column:1/-1">
-      <div class="drumHead">Macros</div>
-      <div class="row" style="grid-template-columns:repeat(4,1fr); margin-top:4px">
-        <div class="control"><label>Brightness</label><input id="macro1" type="range" min="0" max="1" step="0.01" value="0.5"></div>
-        <div class="control"><label>Reverb</label><input id="macro2" type="range" min="0" max="1" step="0.01" value="0.25"></div>
-        <div class="control"><label>Saturation</label><input id="macro3" type="range" min="0" max="1" step="0.01" value="0"></div>
-        <div class="control"><label>Delay</label><input id="macro4" type="range" min="0" max="1" step="0.01" value="0.2"></div>
-      </div>
-
-    <!-- === New Instruments Section under Macros === -->
-    <div class="instrGroup" id="bass303Section">
-      <div class="drumHead">Bass 303</div>
-      <div class="row" style="grid-template-columns:repeat(4,1fr)">
-        <div class="control"><label>Slide Time</label><input id="bassSlide" type="range" min="0" max="0.4" step="0.01" value="0.1" title="Portamento time (s)"></div>
-        <div class="control"><label>Accent Level</label><input id="bassAccent" type="range" min="0" max="1" step="0.01" value="0.7" title="Accent intensity"></div>
-        <div class="control"><label>Resonance</label><input id="bassResonance" type="range" min="0.1" max="20" step="0.1" value="8" title="Filter resonance"></div>
-        <div class="control"><label>Volume</label><input id="bassVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Bass 303 volume"></div>
-      </div>
-      <div class="noteGrid" id="bassNoteGrid"></div>
-    </div>
-
-    <div class="instrGroup" id="waveSection">
-      <div class="drumHead">Wavetable Lite</div>
-      <div class="row" style="grid-template-columns:repeat(3,1fr)">
-        <div class="control"><label>Morph</label><input id="waveMorph" type="range" min="0" max="1" step="0.01" value="0" title="Morph between 8 wavetables"></div>
-        <div class="control"><label>Volume</label><input id="waveVol" type="range" min="0" max="1" step="0.01" value="0.6" title="Wavetable volume"></div>
-        <div class="control"><label>Wave Hold</label><input id="waveHold" type="checkbox" title="Hold note until new key"></div>
-      </div>
-      <div class="noteGrid" id="waveNoteGrid"></div>
-    </div>
-
-    <div class="instrGroup" id="granularSection">
-      <div class="drumHead">Granular Pad</div>
-      <div class="row" style="grid-template-columns:repeat(4,1fr)">
-        <div class="control"><label>Load Sample</label><input id="granLoad" type="file" accept="audio/*"></div>
-        <div class="control"><label>Grain Size</label><input id="granSize" type="range" min="0.02" max="0.5" step="0.01" value="0.1" title="Grain size (s)"></div>
-        <div class="control"><label>Spacing</label><input id="granSpace" type="range" min="0.02" max="0.5" step="0.01" value="0.05" title="Time between grains (s)"></div>
-        <div class="control"><label>Volume</label><input id="granVol" type="range" min="0" max="1" step="0.01" value="0.5" title="Granular pad volume"></div>
-      </div>
-      <div class="row" style="grid-template-columns:1fr">
-        <button class="btn" id="granPlay" title="Play granular texture">Play Pad</button>
-      </div>
-    </div>
-
-    <div class="instrGroup" id="mpcSection">
-      <div class="drumHead">MPC Sampler</div>
-      <div class="mpcGrid" id="mpcGrid"></div>
-      <div class="row" style="grid-template-columns:repeat(5,1fr); margin-top:6px">
-        <div class="control"><label>Start</label><input id="mpcStart" type="range" min="0" max="1" step="0.01" value="0"></div>
-        <div class="control"><label>End</label><input id="mpcEnd" type="range" min="0" max="1" step="0.01" value="1"></div>
-        <div class="control"><label>Pitch (semitones)</label><input id="mpcPitch" type="range" min="-12" max="12" step="1" value="0"></div>
-        <div class="control"><label>Attack</label><input id="mpcAttack" type="range" min="0" max="0.5" step="0.01" value="0"></div>
-        <div class="control"><label>Decay</label><input id="mpcDecay" type="range" min="0" max="0.5" step="0.01" value="0.1"></div>
-      </div>
-      <div class="row" style="grid-template-columns:repeat(2,1fr); margin-top:6px">
-        <div class="control"><label>Load Sample</label><input id="mpcLoad" type="file" accept="audio/*"></div>
-        <div class="control"><label>Volume</label><input id="mpcVol" type="range" min="0" max="1" step="0.01" value="0.6"></div>
-      </div>
-    </div>
-    </div>
-</div>
-  </div>
-
-    <!-- Drum Rack panel -->
-    
-
-    <!-- Macros panel -->
-    
-
-  <div class="transport">
-    <button class="btn primary" id="play" title="Пусни последователността">Play</button>
-    <button class="btn" id="stop" title="Спри (позицията остава)">Stop</button>
-    <button class="btn" id="reset" title="Върни в началото">Reset</button>
-    <button class="btn" id="rec" title="Запис на звук">Rec</button>
-    <button class="btn" id="dl" disabled title="Изтегляне на записания звук">Download WAV</button>
-    <button class="btn" id="undo" title="Връща последното действие">Undo</button>
-    <button class="btn" id="panic" title="Panic (тихо/стоп)">Panic</button>
-  </div>
-
-  <!-- Patch save/load and stems export -->
-  <div class="transport" style="margin-top:8px">
-    <button class="btn" id="savePatch" title="Save patch to JSON">Save</button>
-    <button class="btn" id="loadPatch" title="Load patch from JSON">Load</button>
-    <button class="btn" id="exportStems" title="Export stems (separate WAVs)">Export</button>
-    <input type="file" id="patchFile" accept=".json" style="display:none" />
-  </div>
-
-  <!-- Arrangement view: multi‑track arranger -->
-  <div id="arrangementTracks" class="arrangementTracks"></div>
-  <div id="arrPlayhead" class="arrPlayhead"></div>
-  <!-- Performance timeline for recorded sounds -->
-  <div id="performanceTracks" class="arrangementTracks"></div>
-  <div style="display:flex;gap:8px;align-items:center;margin-top:6px;"><span style="font-size:12px;color:#c9c9c9;">Zoom</span><input type="range" id="perfZoom" min="10" max="60" value="20" style="width:220px"></div>
-</div></div>
-
-<!-- Modal: Chord select -->
-<div class="modal" id="modal">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:700">Select chord for this step</div>
-      <button id="close" class="btn" style="padding:6px 10px" title="Затвори прозореца">Close</button>
-    </div>
-    <div id="modalGrid" class="grid" title="Избери акорд за текущата стъпка"></div>
-  </div>
+<div class="top-tabs" role="navigation" aria-label="Page tabs (mobile)">
+  <button data-page="studio" id="tabStudio">Studio</button>
+  <button data-page="timeline" id="tabTimeline">Timeline</button>
+  <button data-page="arranger" id="tabArranger">Arranger</button>
+  <button data-page="drums" id="tabDrums">Drums</button>
 </div>
 
-<!-- Modal: Patch browser -->
-<div class="modal" id="patchModal">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:700">Patch / Bank Browser</div>
-      <button id="closePatches" class="btn" style="padding:6px 10px">Close</button>
+<!-- CSS-only page anchors (hash navigation) -->
+<a id="studio" class="anchor-target" aria-hidden="true"></a>
+<a id="timeline" class="anchor-target" aria-hidden="true"></a>
+<a id="arranger" class="anchor-target" aria-hidden="true"></a>
+<a id="drums" class="anchor-target" aria-hidden="true"></a>
+
+<main>
+  <section class="panel">
+    <h2>Timeline &amp; Transport</h2>
+
+    <div class="row">
+      <button id="startBtn" class="btn primary">Start</button>
+      <button id="stopBtn" class="btn danger">Stop</button>
+
+      <div class="control">
+        <label for="bpm">BPM</label>
+        <input type="range" id="bpm" min="60" max="160" step="1" value="120" />
+        <div><span id="bpmVal">120</span> bpm</div>
+      </div>
+
+      <div class="control">
+        <label>Arm TL Rec</label>
+        <div class="switch">
+          <input type="checkbox" id="armTl" />
+          <label for="armTl">Record to Arranger</label>
+        </div>
+      </div>
+
+      <!-- Recorder controls -->
+      <div class="control">
+        <label>Запис и изтегляне</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="recBtn" class="btn">Rec</button>
+          <button id="stopRecBtn" class="btn danger">Stop Rec</button>
+          <button id="dlWavBtn" class="btn">Download WAV</button>
+          <button id="dlWebmBtn" class="btn" style="display:none">Download WebM</button>
+        </div>
+        <small id="recStatus" style="color:#8aa0b7">Idle</small>
+      </div>
     </div>
-    <div id="patchGrid" class="patchGrid"></div>
-  </div>
-</div>
+
+    <div class="timeline">
+      <div class="barLabels"><span>1</span><span>5</span><span>9</span><span>13</span></div>
+      <div class="steps" id="steps">
+        <div class="playhead" id="playhead"></div>
+        <div class="gridline" style="left:12.5%"></div>
+        <div class="gridline" style="left:25%"></div>
+        <div class="gridline" style="left:37.5%"></div>
+        <div class="gridline" style="left:50%"></div>
+        <div class="gridline" style="left:62.5%"></div>
+        <div class="gridline" style="left:75%"></div>
+        <div class="gridline" style="left:87.5%"></div>
+      </div>
+      <!-- Chords for main lane -->
+      <div class="noteRow" id="chordsRow"><div class="name">Chords</div></div>
+
+      <!-- NEW: Bass 303 lane (steps + note select) -->
+      <div class="laneTitle">Bass 303</div>
+      <div class="lane">
+        <div class="name">Pattern</div>
+        <div class="cells" id="bassCells"></div>
+      </div>
+      <div class="noteRow" id="bassNotesRow"><div class="name">Notes</div></div>
+
+      <!-- NEW: Wavetable lane (steps + note select) -->
+      <div class="laneTitle">Wavetable</div>
+      <div class="lane">
+        <div class="name">Pattern</div>
+        <div class="cells" id="wtCells"></div>
+      </div>
+      <div class="noteRow" id="wtNotesRow"><div class="name">Notes</div></div>
+    </div>
+
+    <!-- Instrument parameters -->
+    <div class="row">
+      <div class="control">
+        <label>303 Volume</label>
+        <input type="range" id="b303Vol" min="0" max="1" step="0.01" value="0.9" />
+      </div>
+      <div class="control">
+        <label>303 Reso</label>
+        <input type="range" id="b303Reso" min="0.1" max="18" step="0.1" value="8" />
+      </div>
+      <div class="control">
+        <label>303 Slide</label>
+        <input type="range" id="b303Slide" min="0" max="0.25" step="0.005" value="0.06" />
+      </div>
+      <div class="control">
+        <label>303 Accent</label>
+        <input type="range" id="b303Accent" min="0" max="1" step="0.01" value="0.35" />
+      </div>
+      <div class="control">
+        <label>WT Volume</label>
+        <input type="range" id="wtVol" min="0" max="1" step="0.01" value="0.8" />
+      </div>
+      <div class="control">
+        <label>WT Morph</label>
+        <input type="range" id="wtMorph" min="0" max="1" step="0.01" value="0.4" />
+      </div>
+      <div class="control">
+        <label>WT Hold (s)</label>
+        <input type="range" id="wtHold" min="0.05" max="0.7" step="0.01" value="0.25" />
+      </div>
+    </div>
+
+    <!-- Independent Arranger -->
+    <div class="arranger">
+      <div class="arr-toolbar">
+        <button id="arrPlay" class="btn primary">▶ TL Play</button>
+        <button id="arrStop" class="btn danger">■ TL Stop</button>
+        <span class="len">Length: <b id="lenLabel">00:30</b> (drag handle)</span>
+      </div>
+      <div class="arr-wrap" id="arrWrap">
+        <div class="arr-axis" id="arrAxis"></div>
+        <div class="arr-track" id="arrTrack"></div>
+        <div class="arr-playhead" id="arrPlayhead"></div>
+        <div class="arr-limit" id="arrLimit" title="Drag to set length"></div>
+      </div>
+      <div class="inline-help">Двоен клик върху клип = изтриване. Плъзгане = местене. TL Play/Stop управляват аранжера. Лейнове: 1) Chords/Notes, 2) Bass303, 3) Wavetable, 4) Drums, 5) Pads.</div>
+    </div>
+
+    <!-- NEW: Save/Reset UI -->
+    <div class="row">
+      <button class="btn" id="saveSettings">💾 Запази настройки</button>
+      <button class="btn danger" id="resetSettings">🗑️ Изчисти настройки</button>
+      <small style="color:#8aa0b7">Настройките се запазват автоматично; бутоните са за ръчен контрол.</small>
+    </div>
+
+    <div class="footer">Всички инструменти записват в отделни лейнове при включен <span class="kbd">Arm TL Rec</span>. Записът работи с MediaRecorder (ако е наличен) или чрез вътрешен WAV записвач.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Drum Machine &amp; MPC</h2>
+    <div class="row">
+      <div class="control">
+        <label>Master Volume</label>
+        <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.8" />
+      </div>
+      <div class="control">
+        <label>Chorus Amount</label>
+        <input type="range" id="chorusMix" min="0" max="0.8" step="0.01" value="0.25" />
+      </div>
+      <div class="control">
+        <label>Cutoff</label>
+        <input type="range" id="cutoff" min="200" max="8000" step="1" value="2200" />
+      </div>
+      <div class="control">
+        <label>Resonance (Q)</label>
+        <input type="range" id="reso" min="0.1" max="18" step="0.1" value="0.5" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="control"><label>Kick/Snare/Hat/Clap</label><small style="color:#8aa0b7">16-step решетка</small></div>
+    </div>
+    <div class="drum-grid" id="drumGrid" style="display:grid;grid-template-columns: 100px repeat(16, 1fr);gap:6px;padding:8px;background:var(--panel-2);border-radius:12px;border:1px solid #1a263b"></div>
+
+    <h2>MPC Sampler Pads</h2>
+    <div class="pads" id="mpcPads" style="display:grid;grid-template-columns: repeat(4, 1fr);gap:10px;padding:10px"></div>
+    <div class="pad-tools" id="padTools" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px 10px"></div>
+    <div class="footer">Pads и Drums също записват в лейновете си при Arm TL Rec.</div>
+  </section>
+</main>
 
 <script>
-(()=>{
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  const ctx = new AudioContext({latencyHint:'interactive'});
-  const mix = ctx.createGain(); mix.gain.value=.9; mix.connect(ctx.destination);
-
-  // ===== Synth & FX =====
-  const vcf=ctx.createBiquadFilter(); vcf.type='lowpass'; vcf.frequency.value=1500;
-  const dly=ctx.createDelay(1.0); dly.delayTime.value=.25;
-  const dGain=ctx.createGain(); dGain.gain.value=.2;
-  const con=ctx.createConvolver();
-  const rGain=ctx.createGain(); rGain.gain.value=.25;
-
-  // === Added modules for new FX and controls ===
-  // LFO for filter modulation
-  const lfo = ctx.createOscillator();
-  const lfoGain = ctx.createGain();
-  lfo.type = 'sine';
-  lfo.frequency.value = 0.5;
-  lfoGain.gain.value = 0;
-  lfo.connect(lfoGain);
-  lfo.start();
-  let lfoConnected = false;
-  function updateLfoRouting(){
-    const should = lfoGain.gain.value !== 0;
-    if(should && !lfoConnected){
-      lfoGain.connect(vcf.frequency);
-      lfoConnected = true;
-    } else if(!should && lfoConnected){
-      lfoGain.disconnect();
-      lfoConnected = false;
-    }
-  }
-  // Global chorus parameters (applied in voice()). Use distinct names to avoid clashing with DOM ids
-  let chorusRateVal = 5;
-  let chorusWidthVal = 3;
-  // Synth volume for sidechain ducking
-  const synthVol = ctx.createGain();
-  synthVol.gain.value = 1;
-  // disconnect vcf from mix and reconnect through synthVol -- replaced by drive/dry mixing below
-  try { vcf.disconnect(); } catch(e){}
-  // vcf.connect(synthVol);
-  // synthVol.connect(mix);
-  // Humanize amount for timing/velocity variation
-  let humanizeAmt = 0;
-  // Loop range (0‑based indices). Default to full pattern (1‑16).
-  let loopAIdx = 0;
-  let loopBIdx = 15;
-  // Swing amount (0..0.65)
-  let swingVal = 0;
-  // Drive amount (0..1)
-  let driveAmt = 0;
-  // Note repeat latch flag (controlled by checkbox)
-  let nrLatchEnabled = false;
-  // Sidechain duck amount (0..1)
-  let duckAmount = 0;
-
-  // --- Drive / waveshaper ---
-  // Waveshaper for saturation. We'll crossfade between dry and driven signal using dryGain and driveGain.
-  const driveNode = ctx.createWaveShaper();
-  driveNode.oversample = '4x';
-  // initial curve (no distortion)
-  driveNode.curve = new Float32Array([0,0]);
-  const dryGain = ctx.createGain(); dryGain.gain.value = 1;
-  const driveGain = ctx.createGain(); driveGain.gain.value = 0;
-
-  // Detach any existing connections from the filter to the mix and re‑wire through the drive mixer.
-  try { vcf.disconnect(); } catch(e){}
-  // Route filter output to both dry and drive paths
-  vcf.connect(dryGain);
-  vcf.connect(driveNode);
-  driveNode.connect(driveGain);
-  // Route both dry and drive to the synth volume control
-  dryGain.connect(synthVol);
-  driveGain.connect(synthVol);
-  // Ensure synthVol is connected to the main mix only once (in case of previous reconnects)
-  try { synthVol.disconnect(); } catch(e){}
-  synthVol.connect(mix);
-
-  /**
-   * Generate a waveshaper curve for a given drive amount.  Amount should be in the range 0..1.
-   * The algorithm is adapted from common distortion formulas.  Increasing the amount
-   * increases the non‑linear shaping for a warmer, more saturated tone.
-   * @param {number} amount 0 (clean) to 1 (max drive)
-   */
-  function makeDriveCurve(amount=0){
-    const n = 1024;
-    const curve = new Float32Array(n);
-    // convert amount to a shaping parameter k.  k=1 gives almost linear, k=50 gives strong distortion
-    const k = 1 + amount * 50;
-    for(let i=0; i<n; i++){
-      const x = (i * 2 / n) - 1;
-      curve[i] = ((k + 3) * x * 20 * Math.PI / 180) / (Math.PI + k * Math.abs(x));
-    }
-    return curve;
-  }
-
-  function impulse(t=1.0,dec=3.0){
-    const len=Math.floor(ctx.sampleRate*t), buf=ctx.createBuffer(2,len,ctx.sampleRate);
-    for(let ch=0; ch<2; ch++){
-      const data=buf.getChannelData(ch);
-      for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/len,dec);
-    }
-    return buf;
-  }
-  con.buffer=impulse();
-
-  const synthIn=ctx.createGain(); synthIn.connect(vcf);
-  synthIn.connect(dly); dly.connect(dGain); dGain.connect(vcf);
-  synthIn.connect(con); con.connect(rGain); rGain.connect(vcf);
-  // The filter now routes through dryGain/driveGain into synthVol -> mix (see drive section above)
-  // vcf.connect(mix);
-
-  // ===== Drum bus =====
-  const drumBus=ctx.createGain(); drumBus.gain.value=.8; drumBus.connect(mix);
-  const kickGain=ctx.createGain(), snareGain=ctx.createGain(), chhGain=ctx.createGain(), ohhGain=ctx.createGain();
-  kickGain.gain.value=.9; snareGain.gain.value=.6; chhGain.gain.value=.25; ohhGain.gain.value=.4;
-  kickGain.connect(drumBus); snareGain.connect(drumBus); chhGain.connect(drumBus); ohhGain.connect(drumBus);
-
-  // Recorder
-  // Use a MediaStreamDestination for browser supported recording formats (webm/ogg) and
-  // a manual recorder for generating a proper WAV file.  The existing
-  // MediaRecorder implementation on some platforms produces empty files when
-  // requested as WAV, so we capture the audio ourselves via a ScriptProcessorNode
-  // and encode it to a 16‑bit PCM WAV.  We still keep a MediaStreamDestination
-  // connected to the mix so that we can also record a secondary format using
-  // MediaRecorder (e.g. webm/opus) to provide additional download options.
-  const dest = ctx.createMediaStreamDestination();
-  mix.connect(dest);
-
-  // === Manual recorder setup ===
-  // Arrays to accumulate PCM samples from the mix for WAV encoding
-  let manualL = [];
-  let manualR = [];
-  // ScriptProcessorNode to tap the output of the mix.  It must be
-  // connected somewhere in the graph so that onaudioprocess events fire.
-  const recorderNode = ctx.createScriptProcessor(4096, 2, 2);
-  mix.connect(recorderNode);
-  // Connect to destination to keep the processor alive; audio is already
-  // routed to ctx.destination elsewhere, so this won't affect sound.
-  recorderNode.connect(ctx.destination);
-  recorderNode.onaudioprocess = (e) => {
-    if (!recording) return;
-    const input = e.inputBuffer;
-    // Copy input channels to new Float32Array each time
-    manualL.push(new Float32Array(input.getChannelData(0)));
-    if (input.numberOfChannels > 1) {
-      manualR.push(new Float32Array(input.getChannelData(1)));
-    } else {
-      // In case of mono input, duplicate the left channel
-      manualR.push(new Float32Array(input.getChannelData(0)));
-    }
-  };
-
-
-  /**
-   * Encode left/right channel data into a 16‑bit PCM WAV Blob.  The WAV
-   * container header is built according to the standard.  This function
-   * accepts an array of Float32Arrays (one per channel) and the sample
-   * rate, and returns a Blob with MIME type audio/wav.
-   * @param {Float32Array[]} channels Two arrays of audio samples.
-   * @param {number} sampleRate The sample rate of the audio context.
-   */
-  function encodeWAV(channels, sampleRate) {
-    const numChannels = channels.length;
-    const length = channels[0].length;
-    const bytesPerSample = 2;
-    const blockAlign = numChannels * bytesPerSample;
-    const buffer = new ArrayBuffer(44 + length * blockAlign);
-    const view = new DataView(buffer);
-    // Helper to write ASCII strings to the DataView.
-    function writeString(view, offset, str) {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    }
-    let offset = 0;
-    writeString(view, offset, 'RIFF'); offset += 4;
-    view.setUint32(offset, 36 + length * blockAlign, true); offset += 4;
-    writeString(view, offset, 'WAVE'); offset += 4;
-    writeString(view, offset, 'fmt '); offset += 4;
-    view.setUint32(offset, 16, true); offset += 4; // PCM subchunk size
-    view.setUint16(offset, 1, true); offset += 2;  // audio format (1=PCM)
-    view.setUint16(offset, numChannels, true); offset += 2;
-    view.setUint32(offset, sampleRate, true); offset += 4;
-    view.setUint32(offset, sampleRate * blockAlign, true); offset += 4;
-    view.setUint16(offset, blockAlign, true); offset += 2;
-    view.setUint16(offset, bytesPerSample * 8, true); offset += 2; // bits per sample
-    writeString(view, offset, 'data'); offset += 4;
-    view.setUint32(offset, length * blockAlign, true); offset += 4;
-    // Interleave samples.  Convert from float [-1,1] to 16‑bit signed PCM.
-    let pos = offset;
-    for (let i = 0; i < length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        let sample = channels[ch][i];
-        sample = Math.max(-1, Math.min(1, sample));
-        const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-        view.setInt16(pos, intSample, true);
-        pos += 2;
-      }
-    }
-    return new Blob([view], { type: 'audio/wav' });
-  }
-
-  // Recording state and buffers for MediaRecorder based capture.  We
-  // capture into a browser‑supported container (e.g. webm/ogg) and then
-  // decode and re‑encode to WAV when the recording stops.  These
-  // variables track the active recorder, the collected data, and a
-  // simple flag indicating whether a recording session is running.
-  let mediaRecorder = null;
-  let recording = false;
-  // Array of chunks collected by MediaRecorder (webm/ogg) when available
-  let mrChunks = [];
-  // Deprecated: replaced by mrChunks in the manual/MediaRecorder recorder.
-  // let chunks = [];
-
-  // ===== UI refs =====
-  const tempoEl=document.getElementById('tempo'); const tempoSlider=document.getElementById('tempoSlider');
-  const flt=document.getElementById('flt'), env=document.getElementById('env');
-  const dlyAmt=document.getElementById('dly'), revAmt=document.getElementById('rev');
-  const styleSel=document.getElementById('style'), variation=document.getElementById('var');
-  const pads=document.getElementById('pads'), chordSteps=document.getElementById('chordSteps');
-  const play=document.getElementById('play'), stop=document.getElementById('stop'), reset=document.getElementById('reset');
-  const rec=document.getElementById('rec'), dl=document.getElementById('dl'), undoBtn=document.getElementById('undo'), panic=document.getElementById('panic');
-  const kickVol=document.getElementById('kickVol'), snareVol=document.getElementById('snareVol'), chhVol=document.getElementById('chhVol'), ohhVol=document.getElementById('ohhVol');
-  const timeline=document.getElementById('timeline'), tctx=timeline.getContext('2d');
-  const drumGridContainer=document.getElementById('drumGridContainer');
-  const openPatches=document.getElementById('openPatches'), patchModal=document.getElementById('patchModal');
-  const closePatches=document.getElementById('closePatches'), patchGrid=document.getElementById('patchGrid');
-
-  // Arpeggiator UI
-  const arpOn=document.getElementById('arpOn'), arpRate=document.getElementById('arpRate');
-  const arpDir=document.getElementById('arpDir'), arpOct=document.getElementById('arpOct'), arpGate=document.getElementById('arpGate');
-
-  // Note-Repeat UI
-  const nrOn=document.getElementById('nrOn'), nrRate=document.getElementById('nrRate');
-
-  // === Additional UI references for new features ===
-  const keySel=document.getElementById('keySel');
-  const scaleSel=document.getElementById('scaleSel');
-  const drumRackGrid=document.getElementById('drumRackGrid');
-  const drumKitSel=document.getElementById('drumKit');
-  const sampleLoader=document.getElementById('sampleLoader');
-  const macro1=document.getElementById('macro1');
-  const macro2=document.getElementById('macro2');
-  const macro3=document.getElementById('macro3');
-  const macro4=document.getElementById('macro4');
-
-  // === Macro control logic ===
-  function updateMacros(){
-    if(!macro1||!macro2||!macro3||!macro4) return;
-    // brightness controls the filter cutoff (200-8000 Hz)
-    const m1=parseFloat(macro1.value||0);
-    vcf.frequency.value=200 + (8000 - 200) * m1;
-    // reverb mix amount
-    const m2=parseFloat(macro2.value||0);
-    rGain.gain.value = m2;
-    // saturation / drive
-    const m3=parseFloat(macro3.value||0);
-    driveAmt = m3;
-    driveNode.curve = makeDriveCurve(m3);
-    dryGain.gain.value = 1 - m3;
-    driveGain.gain.value = m3;
-    // delay feedback/mix level
-    const m4=parseFloat(macro4.value||0);
-    dGain.gain.value = m4;
-  }
-  [macro1,macro2,macro3,macro4].forEach(el=>{ if(el) el.addEventListener('input', updateMacros); });
-  // Initialize macros once DOM is ready
-  setTimeout(updateMacros, 0);
-
-  /* ---------------------------------------------------------------------
-   * Custom Instrument Modules
-   * The following modules implement additional instruments beyond the
-   * existing macros and drum rack.  Each module is fully self-contained
-   * and relies only on the global AudioContext `ctx`, the master mix bus
-   * `mix`, and the helper functions defined elsewhere (e.g. mtof).
-   * They are initialized once when the app starts and do not interfere
-   * with the main sequencer.  Their UI is defined in the macrosPanel.
-   * Modules included:
-   *  - Bass 303 acid synth with slide, accent and resonance controls.
-   *  - Wavetable-lite synth with morphable shapes and hold mode.
-   *  - Granular pad sampler with adjustable grain size and spacing.
-   *  - MPC-style sampler with 16 pads, per-pad trimming, pitch and envelope.
-   * ------------------------------------------------------------------- */
-
-  // ---- References to custom instrument UI elements ----
-  const bassSlide = document.getElementById('bassSlide');
-  const bassAccent = document.getElementById('bassAccent');
-  const bassResonance = document.getElementById('bassResonance');
-  const bassVol = document.getElementById('bassVol');
-  const bassNoteGrid = document.getElementById('bassNoteGrid');
-  const waveMorph = document.getElementById('waveMorph');
-  const waveVol = document.getElementById('waveVol');
-  const waveHold = document.getElementById('waveHold');
-  const waveNoteGrid = document.getElementById('waveNoteGrid');
-  const granLoad = document.getElementById('granLoad');
-  const granSize = document.getElementById('granSize');
-  const granSpace = document.getElementById('granSpace');
-  const granVol = document.getElementById('granVol');
-  const granPlayBtn = document.getElementById('granPlay');
-  const mpcGrid = document.getElementById('mpcGrid');
-  const mpcStart = document.getElementById('mpcStart');
-  const mpcEnd = document.getElementById('mpcEnd');
-  const mpcPitch = document.getElementById('mpcPitch');
-  const mpcAttack = document.getElementById('mpcAttack');
-  const mpcDecay = document.getElementById('mpcDecay');
-  const mpcLoad = document.getElementById('mpcLoad');
-  const mpcVol = document.getElementById('mpcVol');
-
-  // ---- Bass 303 Module ----
-  const bassNoteNames = ['C2','D2','E2','F2','G2','A2','B2','C3'];
-  const bassNotes = [36,38,40,41,43,45,47,48];
-  let bassLastFreq = null;
-  function initBassNoteGrid(){
-    if(!bassNoteGrid) return;
-    bassNoteGrid.innerHTML = '';
-    bassNoteNames.forEach((name,idx)=>{
-      const btn = document.createElement('div');
-      btn.className = 'noteBtn';
-      btn.textContent = name;
-      btn.onmousedown = (e)=>{
-        const midi = bassNotes[idx];
-        const freq = mtof(midi);
-        const accentVal = parseFloat(bassAccent?.value||0.7);
-        const acc = (e.altKey || e.metaKey) ? accentVal : 0;
-        playBass303(freq, acc);
-      };
-      bassNoteGrid.appendChild(btn);
-    });
-  }
-  function playBass303(freq, accentAmp=0){
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    const res = parseFloat(bassResonance?.value||8);
-    filter.Q.value = res;
-    const cutoffBase = 200 + accentAmp * 800;
-    filter.frequency.setValueAtTime(cutoffBase, ctx.currentTime);
-    const amp = ctx.createGain();
-    const vol = parseFloat(bassVol?.value||0.6);
-    amp.gain.setValueAtTime(0, ctx.currentTime);
-    amp.gain.linearRampToValueAtTime(vol * (1 + accentAmp*0.5), ctx.currentTime + 0.02);
-    amp.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
-    osc.connect(filter);
-    filter.connect(amp);
-    amp.connect(mix);
-    const slideTime = parseFloat(bassSlide?.value||0.1);
-    if(bassLastFreq != null){
-      osc.frequency.setValueAtTime(bassLastFreq, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(freq, ctx.currentTime + slideTime);
-    } else {
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    }
-    bassLastFreq = freq;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-    setTimeout(()=>{ bassLastFreq = null; }, 800);
-  }
-  initBassNoteGrid();
-
-  // ---- Wavetable Lite Module ----
-  const waveTables = [];
-  function buildWavetable(shape){
-    const size = 64;
-    const real = new Float32Array(size);
-    const imag = new Float32Array(size);
-    for(let i=1;i<size;i++){
-      switch(shape){
-        case 'sine': imag[i] = (i===1) ? 1 : 0; break;
-        case 'square': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) : 0; break;
-        case 'saw': imag[i] = 2/(i*Math.PI) * (i % 2 === 1 ? 1 : -1); break;
-        case 'triangle': imag[i] = (i % 2 === 1) ? (8/(Math.PI*Math.PI) / (i*i)) * ((i % 4 === 1) ? 1 : -1) : 0; break;
-        case 'sawdown': imag[i] = -2/(i*Math.PI); break;
-        case 'pulse50': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) : 0; break;
-        case 'pulse25': imag[i] = (i % 2 === 1) ? 4/(i*Math.PI) * ((i % 4 === 1) ? 1 : -1) : 0; break;
-        default: imag[i] = (i===1) ? 1 : 0; break;
-      }
-    }
-    return ctx.createPeriodicWave(real, imag, {disableNormalization:true});
-  }
-  ['sine','square','saw','triangle','sawdown','pulse50','pulse25','sine'].forEach(shape=>{
-    waveTables.push(buildWavetable(shape));
-  });
-  let waveHoldNote = null; let waveSelectedBtn = null;
-  function initWaveNoteGrid(){
-    if(!waveNoteGrid) return;
-    waveNoteGrid.innerHTML = '';
-    const noteNames = ['C3','D3','E3','F3','G3','A3','B3','C4'];
-    const midiVals = [48,50,52,53,55,57,59,60];
-    noteNames.forEach((name,i)=>{
-      const btn = document.createElement('div');
-      btn.className = 'noteBtn';
-      btn.textContent = name;
-      btn.onmousedown = ()=>{
-        const freq = mtof(midiVals[i]);
-        // If hold is enabled, visually mark the selected note button
-        if(waveHold && waveHold.checked){
-          if(waveSelectedBtn){ waveSelectedBtn.classList.remove('selected'); }
-          btn.classList.add('selected');
-          waveSelectedBtn = btn;
-        }
-        playWavetable(freq);
-      };
-      waveNoteGrid.appendChild(btn);
-    });
-  }
-  function playWavetable(freq){
-    const osc = ctx.createOscillator();
-    const vol = parseFloat(waveVol?.value||0.6);
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.02);
-    if(!(waveHold?.checked)){
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
-    }
-    let idx = 0;
-    if(waveMorph){
-      const val = parseFloat(waveMorph.value||0);
-      idx = Math.min(waveTables.length-1, Math.round(val * (waveTables.length-1)));
-    }
-    osc.setPeriodicWave(waveTables[idx]);
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    osc.connect(gain);
-    gain.connect(mix);
-    if(waveHold?.checked){
-      if(waveHoldNote){
-        waveHoldNote.osc.stop();
-        waveHoldNote.gain.disconnect();
-      }
-      waveHoldNote = {osc, gain};
-      osc.start();
-    } else {
-      osc.start();
-      osc.stop(ctx.currentTime + 0.8);
-    }
-  }
-  initWaveNoteGrid();
-  // Ensure held note can be released by toggling 'Wave Hold' off
-  if(waveHold){
-    waveHold.addEventListener('change', () => {
-      if(!waveHold.checked && waveHoldNote){
-        try{
-          // Smoothly release the held note to avoid clicks
-          waveHoldNote.gain.gain.cancelScheduledValues(ctx.currentTime);
-          waveHoldNote.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
-          waveHoldNote.osc.stop(ctx.currentTime + 0.1);
-        }catch(e){ try{ waveHoldNote.osc.stop(); }catch(_){} }
-        waveHoldNote = null;
-      }
-      // Clear held-note visual highlight when disabling hold
-      if(!waveHold.checked && waveSelectedBtn){
-        waveSelectedBtn.classList.remove('selected');
-        waveSelectedBtn = null;
-      }
-    });
-  }
-
-  // ---- Granular Pad Module ----
-  let granBuffer = null;
-  const granGain = ctx.createGain();
-  granGain.gain.value = parseFloat(granVol?.value||0.5);
-  granGain.connect(mix);
-  if(granVol) granVol.addEventListener('input', ()=>{ granGain.gain.value = parseFloat(granVol.value||0.5); });
-  if(granLoad){
-    granLoad.addEventListener('change', ()=>{
-      const file = granLoad.files[0];
-      if(file){
-        const reader = new FileReader();
-        reader.onload = ()=>{
-          ctx.decodeAudioData(reader.result).then(buf=>{ granBuffer = buf; });
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
-  }
-  function playGranular(){
-    if(!granBuffer) return;
-    const size = parseFloat(granSize?.value||0.1);
-    const space = parseFloat(granSpace?.value||0.05);
-    const now = ctx.currentTime;
-    const grainCount = Math.floor(0.8 / space);
-    for(let i=0;i<grainCount;i++){
-      const src = ctx.createBufferSource();
-      src.buffer = granBuffer;
-      const start = Math.random() * Math.max(0, granBuffer.duration - size);
-      src.start(now + i*space, start, size);
-      src.connect(granGain);
-    }
-  }
-  if(granPlayBtn){ granPlayBtn.onclick = ()=>{ playGranular(); }; }
-
-  // ---- MPC Sampler Module ----
-  const mpcPads = [];
-  let selectedMpcIdx = -1;
-  function initMpc(){
-    if(!mpcGrid) return;
-    mpcGrid.innerHTML = '';
-    mpcPads.length = 0;
-    for(let i=0;i<16;i++){
-      const pad = { buffer:null, start:0, end:1, pitch:0, attack:0, decay:0.1, el:null, activeSrc:null };
-      const el = document.createElement('div');
-      el.className = 'mpcPad';
-      el.textContent = i+1;
-
-      // Delete (X) button
-      const del = document.createElement('button');
-      del.className = 'del';
-      del.textContent = '×';
-      del.title = 'Delete sample';
-      del.onclick = (ev)=>{ ev.stopPropagation(); clearMpcPad(i); };
-      el.appendChild(del);
-
-      pad.el = el;
-
-      // Click = toggle play/stop (no autoplay on load/drop)
-      el.onmousedown = ()=>{
-        selectedMpcIdx = i;
-        refreshMpcSelection();
-        toggleMpcPad(i);
-      };
-
-      // Drag & drop: load to this pad WITHOUT autoplay
-      el.ondragover = (ev)=>{ ev.preventDefault(); ev.dataTransfer.dropEffect='copy'; el.style.filter='brightness(1.2)'; };
-      el.ondragleave = ()=>{ el.style.filter=''; };
-      el.ondrop = (ev)=>{
-        ev.preventDefault(); el.style.filter='';
-        const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
-        if(file){
-          selectedMpcIdx = i;
-          refreshMpcSelection();
-          loadSampleToMpcPad(file,i,false);
-        }
-      };
-      mpcPads.push(pad);
-      mpcGrid.appendChild(el);
-    }
-  }
-  function refreshMpcSelection(){
-    mpcPads.forEach((p,idx)=>{
-      p.el.classList.toggle('selected', idx===selectedMpcIdx);
-    });
-    const pad = mpcPads[selectedMpcIdx]||null;
-    if(pad){
-      if(mpcStart) mpcStart.value = pad.start;
-      if(mpcEnd) mpcEnd.value = pad.end;
-      if(mpcPitch) mpcPitch.value = pad.pitch;
-      if(mpcAttack) mpcAttack.value = pad.attack;
-      if(mpcDecay) mpcDecay.value = pad.decay;
-    }
-  }
-  function loadSampleToMpcPad(file, idx, autoplay=false){
-    const reader = new FileReader();
-    reader.onload = ()=>{
-      ctx.decodeAudioData(reader.result).then(buf=>{
-        const pad = mpcPads[idx];
-        if(pad.activeSrc){ try{ pad.activeSrc.stop(); }catch(e){} pad.activeSrc = null; }
-        pad.buffer = buf;
-        pad.start = 0;
-        pad.end = 1;
-        pad.pitch = 0;
-        pad.attack = 0;
-        pad.decay = 0.1;
-        pad.el.classList.add('has-sample');
-        if(autoplay){ try{ if(ctx.state!=='running') ctx.resume(); }catch(e){} setTimeout(()=>toggleMpcPad(idx), 30); }
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  }
-  function playMpcPad(idx, returnSource=false){
-    const pad = mpcPads[idx];
-    if(!pad || !pad.buffer) return;
-    const now = ctx.currentTime;
-    const src = ctx.createBufferSource();
-    src.buffer = pad.buffer;
-    const rate = Math.pow(2, (pad.pitch||0) / 12);
-    src.playbackRate.value = rate;
-    const g = ctx.createGain();
-    const baseVol = parseFloat(mpcVol?.value||0.6);
-    g.gain.setValueAtTime(0, now);
-    const segDur = Math.max(0.01, (pad.end - pad.start) * pad.buffer.duration / rate);
-    const atk = pad.attack||0;
-    const dec = pad.decay||0.1;
-    g.gain.linearRampToValueAtTime(baseVol, now + atk);
-    g.gain.linearRampToValueAtTime(0, now + atk + Math.min(dec, segDur));
-    src.connect(g); g.connect(mix);
-    src.start(now, pad.start * pad.buffer.duration, (pad.end - pad.start) * pad.buffer.duration / rate);
-    return returnSource ? src : null;
-  }
-  if(mpcStart) mpcStart.addEventListener('input', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx>=0){ const pad = mpcPads[idx]; const v = parseFloat(mpcStart.value||0); pad.start = Math.min(Math.max(0, v), pad.end - 0.01); }
-  });
-  if(mpcEnd) mpcEnd.addEventListener('input', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx>=0){ const pad = mpcPads[idx]; const v = parseFloat(mpcEnd.value||1); pad.end = Math.max(Math.min(1, v), pad.start + 0.01); }
-  });
-  if(mpcPitch) mpcPitch.addEventListener('input', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx>=0) mpcPads[idx].pitch = parseFloat(mpcPitch.value||0);
-  });
-  if(mpcAttack) mpcAttack.addEventListener('input', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx>=0) mpcPads[idx].attack = parseFloat(mpcAttack.value||0);
-  });
-  if(mpcDecay) mpcDecay.addEventListener('input', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx>=0) mpcPads[idx].decay = parseFloat(mpcDecay.value||0.1);
-  });
-  if(mpcVol) mpcVol.addEventListener('input', ()=>{ /* volume used on playback */ });
-  if(mpcLoad) mpcLoad.addEventListener('change', ()=>{
-    const idx = selectedMpcIdx;
-    if(idx<0){ idx = 0; selectedMpcIdx = 0; refreshMpcSelection(); }
-    if(mpcLoad.files && mpcLoad.files[0]) loadSampleToMpcPad(mpcLoad.files[0], idx, false);
-  });
-  initMpc();
-  // === MPC helpers: clear pad and toggle play/stop ===
-  function clearMpcPad(i){
-    const pad = mpcPads[i];
-    if(!pad) return;
-    if(pad.activeSrc){ try{ pad.activeSrc.stop(); }catch(e){} pad.activeSrc = null; }
-    pad.buffer = null;
-    pad.start = 0; pad.end = 1; pad.pitch = 0; pad.attack = 0; pad.decay = 0.1;
-        pad.el.classList.add('has-sample');
-        if(autoplay){ try{ if(ctx.state!=='running') ctx.resume(); }catch(e){} setTimeout(()=>toggleMpcPad(idx), 30); }
-    pad.el.classList.remove('has-sample');
-  }
-
-  function toggleMpcPad(idx){
-    const pad = mpcPads[idx];
-    if(!pad) return;
-    if(pad.activeSrc){
-      try{ pad.activeSrc.stop(); }catch(e){}
-      pad.activeSrc = null;
-      return;
-    }
-    const src = playMpcPad(idx, true);
-    pad.activeSrc = src || null;
-    if(src){
-      src.onended = ()=>{ if(pad.activeSrc === src) pad.activeSrc = null; };
-    }
-  }
-
-
-  // ===== Drum Rack Implementation =====
-  // Array to hold pad objects: {el, sampleFunc, buffer, accent, label}
-  const drumRackPads = [];
-
-  /**
-   * Initialize the drum rack grid by creating pad elements, attaching
-   * click/drag handlers, and adding them to the DOM.  Each pad
-   * represents one of 16 cells in a 4×4 grid.  Pads are assigned a
-   * default sample function via kits, but may be overwritten by
-   * loading custom samples.  Alt/Option click toggles accent.
-   */
-  function initDrumRack(){
-    if(!drumRackGrid || drumRackPads.length) return;
-    const names = ['Kick','Snare','Clap','HH','Tom1','Tom2','Tom3','Tom4','Perc1','Perc2','Perc3','Perc4','FX1','FX2','FX3','FX4'];
-    for(let i=0;i<16;i++){
-      const el = document.createElement('div');
-      el.className = 'drumRackPad';
-      el.innerHTML = `<div style="font-weight:700">${names[i]}</div><small></small>`;
-      el.title = names[i];
-      const pad = { el: el, sampleFunc: null, buffer: null, accent: false, label: names[i] };
-      drumRackPads.push(pad);
-      drumRackGrid.appendChild(el);
-      // Click handler: play pad or toggle accent
-      el.onmousedown = (e) => {
-        flash(el);
-        // On alt or meta key, toggle accent flag
-        if(e.altKey || e.metaKey){
-          pad.accent = !pad.accent;
-          el.classList.toggle('accent', pad.accent);
-        } else {
-          // Play pad with pointer pressure if available
-          playDrumPad(i, e.pressure || 1);
-        }
-      };
-      // Drag & drop: highlight on drag over and decode dropped audio
-      el.ondragover = (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; el.style.filter = 'brightness(1.2)'; };
-      el.ondragleave = (ev) => { el.style.filter = ''; };
-      el.ondrop = (ev) => {
-        ev.preventDefault(); el.style.filter = '';
-        const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
-        if(file) loadSampleToPad(file, i);
-      };
-    }
-  }
-
-  /**
-   * Drum kit definitions.  Each kit maps to an array of 16 functions
-   * accepting an amplitude argument (0..1).  Each function triggers
-   * a built-in synth drum voice (kick/snare/clap/hat/tom/perc).  Kits
-   * can be extended or replaced by user-loaded samples.  When no
-   * function is provided for a pad index, playback falls back to the
-   * default kit (Lo-Fi).
-   */
-  const drumKits = {
-    'Lo-Fi': [
-      (a)=>kick(a*0.8),(a)=>snare(a*0.8),(a)=>clap(a*0.7),(a)=>hat(false,a*0.5),
-      (a)=>tom(1,a),(a)=>tom(2,a),(a)=>tom(3,a),(a)=>tom(4,a),
-      (a)=>perc(1,a),(a)=>perc(2,a),(a)=>perc(3,a),(a)=>perc(4,a),
-      (a)=>hat(true,a*0.6),(a)=>snare(a*0.5),(a)=>kick(a*0.5),(a)=>clap(a*0.5)
-    ],
-    'Hip-Hop': [
-      (a)=>kick(a*1),(a)=>snare(a*1),(a)=>clap(a*0.9),(a)=>hat(false,a*0.6),
-      (a)=>tom(1,a*1.1),(a)=>tom(2,a*1.1),(a)=>tom(3,a*1.1),(a)=>tom(4,a*1.1),
-      (a)=>perc(1,a*0.9),(a)=>perc(2,a*0.9),(a)=>perc(3,a*0.9),(a)=>perc(4,a*0.9),
-      (a)=>hat(true,a*0.7),(a)=>snare(a*0.6),(a)=>kick(a*0.6),(a)=>clap(a*0.6)
-    ],
-    'House': [
-      (a)=>kick(a*1),(a)=>snare(a*0.8),(a)=>clap(a*0.8),(a)=>hat(false,a*0.7),
-      (a)=>tom(1,a*0.6),(a)=>tom(2,a*0.6),(a)=>tom(3,a*0.6),(a)=>tom(4,a*0.6),
-      (a)=>perc(1,a*0.7),(a)=>perc(2,a*0.7),(a)=>perc(3,a*0.7),(a)=>perc(4,a*0.7),
-      (a)=>hat(true,a*0.8),(a)=>snare(a*0.7),(a)=>kick(a*0.7),(a)=>clap(a*0.7)
-    ],
-    'Techno': [
-      (a)=>kick(a*1),(a)=>snare(a*0.7),(a)=>clap(a*0.7),(a)=>hat(false,a*0.8),
-      (a)=>tom(1,a*0.9),(a)=>tom(2,a*0.9),(a)=>tom(3,a*0.9),(a)=>tom(4,a*0.9),
-      (a)=>perc(1,a*0.8),(a)=>perc(2,a*0.8),(a)=>perc(3,a*0.8),(a)=>perc(4,a*0.8),
-      (a)=>hat(true,a*0.9),(a)=>snare(a*0.8),(a)=>kick(a*0.8),(a)=>clap(a*0.8)
-    ]
-  };
-
-  /**
-   * Load a given drum kit by name.  Assigns each pad's sampleFunc
-   * according to the selected kit.  Custom loaded samples (buffers)
-   * take precedence over sampleFuncs and are not cleared.  If a kit
-   * doesn't provide a function for a pad index, the Lo-Fi kit will
-   * supply a fallback.
-   * @param {string} name Name of the kit (Lo-Fi, Hip-Hop, House, Techno)
-   */
-  function loadKit(name){
-    const kit = drumKits[name] || drumKits['Lo-Fi'];
-    drumRackPads.forEach((pad,i)=>{
-      pad.sampleFunc = kit[i] || drumKits['Lo-Fi'][i];
-      // leaving pad.buffer unchanged preserves user samples
-    });
-  }
-
-  /**
-   * Play a drum rack pad by index.  If a custom buffer is loaded on
-   * the pad, it is played via BufferSource and routed to the drum bus
-   * with an individual gain; otherwise the sampleFunc is invoked.
-   * @param {number} idx Pad index (0–15)
-   * @param {number} amp Amplitude multiplier (0..1)
-   */
-  function playDrumPad(idx, amp=1){
-    const pad = drumRackPads[idx];
-    if(!pad) return;
-    const a = amp * (pad.accent ? 1.25 : 1);
-    if(pad.buffer){
-      const src = ctx.createBufferSource();
-      src.buffer = pad.buffer;
-      const g = ctx.createGain(); g.gain.value = a;
-      src.connect(g); g.connect(drumBus);
-      src.start();
-    } else if(pad.sampleFunc){
-      pad.sampleFunc(a);
-    }
-    // record into performance timeline if available
-    try{
-      if(typeof recordPerfEvent === 'function'){
-        const stepDurSec = 60 / tempo;
-        const durSteps = 1;
-        recordPerfEvent('Pad'+idx, durSteps);
-      }
-    }catch(e){}
-  }
-
-  /**
-   * Decode an audio file and assign it to a pad.  Once loaded,
-   * pad.sampleFunc is set to null to avoid fallback kit.
-   */
-  function loadSampleToPad(file, idx){
-    const reader = new FileReader();
-    reader.onload = () => {
-      ctx.decodeAudioData(reader.result).then((buf)=>{
-        drumRackPads[idx].buffer = buf;
-        drumRackPads[idx].sampleFunc = null;
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  // Handle loading multiple samples via the hidden file input
-  if(sampleLoader){
-    sampleLoader.addEventListener('change', () => {
-      const files = Array.from(sampleLoader.files || []);
-      files.forEach((file,i)=>{
-        if(i < drumRackPads.length){
-          const reader = new FileReader();
-          reader.onload = () => {
-            ctx.decodeAudioData(reader.result).then((buf)=>{
-              drumRackPads[i].buffer = buf;
-              drumRackPads[i].sampleFunc = null;
-            });
-          };
-          reader.readAsArrayBuffer(file);
-        }
-      });
-    });
-  }
-
-  // Listen for kit changes
-  if(drumKitSel){
-    drumKitSel.addEventListener('change', ()=>loadKit(drumKitSel.value));
-  }
-
-  // Initialize drum rack and load default kit on startup
-  setTimeout(() => {
-    initDrumRack();
-    loadKit(drumKitSel ? drumKitSel.value : 'Lo-Fi');
-  }, 0);
-
-  // Button micro-feedback
-  function flash(el){ el.classList.add('press'); setTimeout(()=>el.classList.remove('press'),110); }
-  [play,stop,reset,rec,dl,undoBtn,openPatches,closePatches,panic].forEach(b=>b.addEventListener('mousedown',()=>flash(b)));
-
-  // Tempo
-  let tempo=120; tempoEl.textContent=tempo.toFixed(1); if(tempoSlider) tempoSlider.value = tempo;
-  tempoEl.addEventListener('wheel',(e)=>{e.preventDefault(); tempo=Math.min(200,Math.max(40,tempo+(e.deltaY>0?-1:1))); tempoEl.textContent=tempo.toFixed(1); if(tempoSlider) tempoSlider.value = tempo; drawTimeline(globalStep % DRUM_STEPS);});
-  // Tempo slider -> updates tempo live
-  if (tempoSlider) {
-    tempoSlider.addEventListener('input', () => {
-      tempo = +tempoSlider.value;
-      tempoEl.textContent = tempo.toFixed(1);
-      drawTimeline(globalStep % DRUM_STEPS);
-    });
-  }
-
-
-  // ===== Undo =====
-  const undoStack=[]; function pushUndo(fn){ undoStack.push(fn); undoBtn.disabled = undoStack.length===0; }
-  undoBtn.onclick=()=>{ const fn=undoStack.pop(); if(fn) fn(); undoBtn.disabled = undoStack.length===0; };
-
-  // ===== Chord steps =====
-  // Use a mutable number of steps so the user can add more chord steps dynamically.  Default to 8.
-  let NUM_STEPS=8;
-  const stepData=Array(NUM_STEPS).fill(null);
-  let active=0;
-  for(let i=0;i<NUM_STEPS;i++){
-    const b=document.createElement('div'); b.className='step'+(i===0?' bar1':''); b.textContent=i+1;
-    b.title = `Стъпка ${i+1} – клик за избор/смяна на акорд`;
-    // Single click selects this step (for quick pad assignment).  Double click opens the chord modal.
-    b.onclick = () => { active = i; refreshSteps(); refreshPadsHighlight(); };
-    b.ondblclick = () => { active = i; openChordModal(i); refreshSteps(); refreshPadsHighlight(); };
-    chordSteps.appendChild(b);
-  }
-
-  // Event delegation for chord step clicks.  If individual handlers fail due to bubbling
-  // or other issues, this ensures clicks on any .step inside chordSteps will still
-  // select the appropriate step and (on double click) open the chord modal.
-  chordSteps.addEventListener('click', (e) => {
-    const el = e.target.closest('.step');
-    if (!el || !chordSteps.contains(el)) return;
-    const idx = Array.from(chordSteps.children).indexOf(el);
-    active = idx;
-    refreshSteps();
-    refreshPadsHighlight();
-  });
-  chordSteps.addEventListener('dblclick', (e) => {
-    const el = e.target.closest('.step');
-    if (!el || !chordSteps.contains(el)) return;
-    const idx = Array.from(chordSteps.children).indexOf(el);
-    active = idx;
-    openChordModal(idx);
-    refreshSteps();
-    refreshPadsHighlight();
-  });
-
-  // Numeric selector for current chord step.  Changing the number updates the active step.
-  const stepSelect = document.getElementById('stepSelect');
-  if (stepSelect) {
-    stepSelect.addEventListener('input', () => {
-      let val = parseInt(stepSelect.value) || 1;
-      // Clamp within existing steps
-      val = Math.max(1, Math.min(stepData.length, val));
-      stepSelect.value = val;
-      active = val - 1;
-      refreshSteps();
-      refreshPadsHighlight();
-    });
-  }
-
-  // Handle dynamic addition of chord steps.  When the user clicks the +Step button
-  // (rendered in the markup after the chordSteps container), append a new null
-  // entry to stepData, update the number of steps, and create a corresponding
-  // .step element.  We mark every first step of an 8‑step bar with the bar1
-  // class for visual grouping.  Refresh the UI after adding.
-  const addStepBtn = document.getElementById('addStep');
-  if (addStepBtn) {
-    addStepBtn.addEventListener('click', () => {
-      const idx = stepData.length;
-      // expand the stepData array with a new empty slot
-      stepData.push(null);
-      // update the dynamic step count used in modulo operations
-      NUM_STEPS = stepData.length;
-      // create the DOM element representing the new step
-      const b = document.createElement('div');
-      b.className = 'step';
-      if (idx % 8 === 0) b.classList.add('bar1');
-      b.textContent = idx + 1;
-      b.title = `Стъпка ${idx+1} – клик за избор/смяна на акорд`;
-      // Single click selects this step; double click opens chord chooser
-      b.onclick = () => {
-        active = idx;
-        refreshSteps();
-        refreshPadsHighlight();
-      };
-      b.ondblclick = () => {
-        active = idx;
-        openChordModal(idx);
-        refreshSteps();
-        refreshPadsHighlight();
-      };
-      chordSteps.appendChild(b);
-      // refresh visual highlights and timeline
-      refreshSteps();
-      refreshPadsHighlight();
-      // Redraw timeline at current pattern position (globalStep modulo DRUM_STEPS)
-      drawTimeline(globalStep % DRUM_STEPS);
-    // Update the max value of the step selector to reflect new step count
-    if (stepSelect) stepSelect.max = stepData.length;
-    });
-  }
-  function refreshSteps(){[...chordSteps.children].forEach((el,i)=>el.classList.toggle('active',i===active)); drawTimeline();}
-  const roots=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-  const quals=['maj','min','maj7','min7','dom7','dim','aug','sus2'];
-  function chordTones(r,q){const ri=roots.indexOf(r);const map={maj:[0,4,7],min:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],dom7:[0,4,7,10],dim:[0,3,6],aug:[0,4,8],sus2:[0,2,7]};return map[q].map(s=>48+((ri)%12)+s)}
-  function chordLabel(obj){ return obj ? `${obj.r} ${obj.q}` : 'none'; }
-
-  // Quick pads (dynamically generated based on selected key/scale)
-  // degrees map: indices into major/minor scale offsets for each pad
-  const quickPadDegrees = [0,1,2,3,4,5,6,4];
-  const scaleOffsets = {
-    'Major': [0,2,4,5,7,9,11],
-    'Minor': [0,2,3,5,7,8,10]
-  };
-  const chordQualities = {
-    'Major': ['maj','min','min','maj','maj','min','dim','dom7'],
-    'Minor': ['min','dim','maj','min','min','maj','maj','dom7']
-  };
-  const quickPads = [];
-  for(let i=0;i<8;i++){
-    const p=document.createElement('div');
-    p.className='pad';
-    p.innerHTML='<div style="font-weight:700">&nbsp;</div><small>&nbsp;</small>';
-    p.title = "Клик – добавя акорда към избраната стъпка";
-    p.onmousedown=()=>flash(p);
-    // closure to capture index
-    ((idx)=>{
-      p.onclick=()=>{
-        const {r,q} = quickPads[idx];
-        const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
-        stepData[active]={r,q,tones:chordTones(r,q)};
-        pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
-        refreshPadsHighlight(); drawTimeline();
-      };
-    })(i);
-    pads.appendChild(p);
-    quickPads.push({el:p,r:null,q:null});
-  }
-  function updateQuickPads(){
-    const key = keySel ? keySel.value : 'C';
-    const scale = scaleSel ? scaleSel.value : 'Major';
-    const rootIndex = roots.indexOf(key);
-    const offsets = scaleOffsets[scale] || scaleOffsets['Major'];
-    const qualsArr = chordQualities[scale] || chordQualities['Major'];
-    quickPads.forEach((obj,i)=>{
-      const degree = quickPadDegrees[i] % offsets.length;
-      const semitone = (rootIndex + offsets[degree]) % 12;
-      const noteName = roots[semitone];
-      // Determine chord quality: the 8th pad uses a dominant 7 regardless of scale
-      const q = (i === 7) ? 'dom7' : (qualsArr[degree] || 'maj');
-      obj.r = noteName;
-      obj.q = q;
-      obj.el.innerHTML = `<div style=\"font-weight:700\">${noteName}</div><small>${q}</small>`;
-    });
-    refreshPadsHighlight();
-  }
-  if(keySel && scaleSel){
-    keySel.addEventListener('change', updateQuickPads);
-    scaleSel.addEventListener('change', updateQuickPads);
-    setTimeout(updateQuickPads,0);
-  }
-  function sameChord(a,b){ return a && b && a.r===b.r && a.q===b.q; }
-  function refreshPadsHighlight(){ const current=stepData[active]; quickPads.forEach(({el,r,q})=>el.classList.toggle('selected', sameChord(current,{r,q}))); }
-
-  // ===== Chord modal =====
-  const modal=document.getElementById('modal'), modalGrid=document.getElementById('modalGrid'); document.getElementById('close').onclick=()=>modal.style.display='none';
-  function openChordModal(i){active=i; modal.style.display='flex'; buildChordModal();}
-  function buildChordModal(){
-    modalGrid.innerHTML=''; const current=stepData[active];
-    roots.forEach(r=>quals.forEach(q=>{
-      const d=document.createElement('div'); d.className='pad'; d.innerHTML=`<div style="font-weight:700">${r}</div><small>${q}</small>`;
-      d.title = `Задай ${r} ${q} на стъпка ${active+1}`;
-      if(sameChord(current,{r,q})) d.classList.add('selected');
-      d.onmousedown=()=>flash(d);
-      d.onclick=()=>{ const prev=stepData[active]?JSON.parse(JSON.stringify(stepData[active])):null;
-        stepData[active]={r,q,tones:chordTones(r,q)};
-        pushUndo(()=>{ stepData[active]=prev; refreshPadsHighlight(); drawTimeline(); });
-        modal.style.display='none'; refreshSteps(); refreshPadsHighlight(); drawTimeline();
-      };
-      modalGrid.appendChild(d);
-    }));
-  }
-
-  // ===== Arpeggiator =====
-  const arp = {enabled:false, rate:8, dir:'UpDown', oct:2, gate:0.6, idx:0};
-  function updateArpFromUI(){
-    arp.enabled = arpOn.checked;
-    arp.rate = +arpRate.value; // 4/8/16/32
-    arp.dir = arpDir.value;
-    arp.oct = Math.max(1,Math.min(4, +arpOct.value||1));
-    arp.gate = +arpGate.value;
-  }
-  [arpOn,arpRate,arpDir,arpOct,arpGate].forEach(el=>el.addEventListener('input',updateArpFromUI));
-  updateArpFromUI();
-
-  function buildArpSeq(tones){
-    let base=[...tones].sort((a,b)=>a-b);
-    if(arp.dir==='Down') base=[...base].sort((a,b)=>b-a);
-    else if(arp.dir==='UpDown'){ base=[...tones].sort((a,b)=>a-b); base = base.concat(base.slice(1,-1).reverse()); }
-    else if(arp.dir==='Random') base=[...base].sort(()=>Math.random()-.5);
-    let seq=[];
-    for(let o=0;o<arp.oct;o++){ const sh=o*12; seq = seq.concat(base.map(n=>n+sh)); }
-    return seq.length?seq:tones;
-  }
-
-  // synth voice
-  function mtof(m){return 440*Math.pow(2,(m-69)/12)}
-  function voice(freq,dur=.48,amp=1){
-    // Record the synth event into the performance timeline if available.
-    try{
-      if(typeof recordPerfEvent === 'function'){
-        const stepDurSec = 60 / tempo;
-        // Convert the requested voice duration (seconds) to an integer number of timeline steps.
-        const durSteps = Math.max(1, Math.round((dur||0.001) / stepDurSec));
-        recordPerfEvent('Synth', durSteps);
-      }
-    }catch(e){}
-    const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq;
-    const vca=ctx.createGain(); vca.gain.value=0;
-    // Simple chorus vibrato: an LFO modulates oscillator detune.  Use global chorusRateVal and chorusWidthVal.
-    const chorus=ctx.createOscillator();
-    const det=ctx.createGain();
-    chorus.frequency.value = chorusRateVal;
-    det.gain.value = chorusWidthVal;
-    chorus.connect(det);
-    det.connect(o.detune);
-    o.connect(vca); vca.connect(synthIn);
-    const now=ctx.currentTime;
-    vca.gain.linearRampToValueAtTime(.9*amp,now+.01);
-    vca.gain.exponentialRampToValueAtTime(.001, now + dur);
-    o.start(); chorus.start(); o.stop(now+dur+1);
-  }
-
-  function playChordStyle(tones,stepDur){
-    let arr=[...tones]; const style=styleSel.value;
-    if(style==='Arp Up')arr.sort((a,b)=>a-b); else if(style==='Arp Down')arr.sort((a,b)=>b-a); else if(style==='Random')arr.sort(()=>Math.random()-.5);
-    if(style.startsWith('Strum')){arr.sort((a,b)=>style==='Strum Up'?a-b:b-a)}
-    const per=stepDur/Math.max(1,arr.length);
-    arr.forEach((m,i)=>setTimeout(()=>voice(mtof(m),per*.9*(.5+ +variation.value)), i*(style.startsWith('Strum')?per*.18:per*.05)*1000));
-  }
-
-  function playArp(tones, stepDur){
-    const seq=buildArpSeq(tones);
-    const sub = Math.max(1, arp.rate/4); // 1/4->1, 1/8->2, ...
-    for(let i=0;i<sub;i++){
-      const note=seq[arp.idx % seq.length]; arp.idx++;
-      const dur = (stepDur/sub)*arp.gate;
-      setTimeout(()=>voice(mtof(note), dur), i*(stepDur/sub)*1000);
-    }
-  }
-
-  // ===== Drums + Grid =====
-  const DRUM_STEPS=16, drums=['Kick','Snare','CHH','OHH'];
-  // Initialize drum grid with objects to store on/off, accent, velocity and probability per step
-  const grid = drums.map(() => Array.from({ length: DRUM_STEPS }, () => ({ on:false, accent:false, velocity:1, prob:1 })));
-
-  const noteRepeat={enabled:true, rate:16, active:[false,false,false,false]};
-  nrOn.addEventListener('input',()=>noteRepeat.enabled=nrOn.checked);
-  nrRate.addEventListener('input',()=>noteRepeat.rate=+nrRate.value);
-
-  drums.forEach((name,r)=>{
-    const row=document.createElement('div'); row.className='drumRow';
-    const label=document.createElement('div'); label.className='drumLabel'; label.textContent=name;
-    label.title = {Kick:"Бас барабан – задръж за Note-Repeat", Snare:"Малък барабан – задръж за Note-Repeat", CHH:"Затворен hi-hat – задръж", OHH:"Отворен hi-hat – задръж"}[name];
-    // Hold for Note-Repeat:
-    // Note-Repeat with optional latch: toggle if latch is enabled, otherwise hold while mouse is pressed
-    label.onmousedown = () => {
-      if(noteRepeat.enabled){
-        if(nrLatchEnabled){
-          // Toggle active state when latch mode is on
-          noteRepeat.active[r] = !noteRepeat.active[r];
-          label.style.filter = noteRepeat.active[r] ? 'brightness(1.3)' : '';
-        } else {
-          // Without latch, start note repeat while holding
-          noteRepeat.active[r] = true;
-          label.style.filter = 'brightness(1.3)';
-        }
-      }
-    };
-    label.onmouseup = () => {
-      if(!nrLatchEnabled){
-        noteRepeat.active[r] = false;
-        label.style.filter = '';
-      }
-    };
-    label.onmouseleave = () => {
-      if(!nrLatchEnabled){
-        noteRepeat.active[r] = false;
-        label.style.filter = '';
-      }
-    };
-
-    const gridRow=document.createElement('div'); gridRow.className='drumGridRow';
-    for(let c=0;c<DRUM_STEPS;c++){
-      const cell=document.createElement('div');
-      cell.className='drumCell'+(c===0?' beat1':'');
-      cell.title = `${name} – Step ${c+1}`;
-      // initial opacity based on velocity
-      cell.style.opacity = 0.65;
-      cell.onmousedown = () => flash(cell);
-      cell.onclick = (e) => {
-        const obj = grid[r][c];
-        const prev = { on: obj.on, accent: obj.accent, velocity: obj.velocity, prob: obj.prob };
-        if(e.altKey){
-          obj.accent = !obj.accent;
-          cell.classList.toggle('accent', obj.accent);
-        } else {
-          obj.on = !obj.on;
-          cell.classList.toggle('active', obj.on);
-        }
-        drawTimeline();
-        pushUndo(() => {
-          obj.on = prev.on;
-          obj.accent = prev.accent;
-          obj.velocity = prev.velocity;
-          obj.prob = prev.prob;
-          cell.classList.toggle('active', obj.on);
-          cell.classList.toggle('accent', obj.accent);
-          drawTimeline();
-        });
-      };
-      cell.onwheel = (e) => {
-        const obj = grid[r][c];
-        if(e.shiftKey){
-          obj.velocity = Math.min(2, Math.max(0, obj.velocity + (e.deltaY < 0 ? 0.1 : -0.1)));
-        } else if(e.ctrlKey){
-          obj.prob = Math.min(1, Math.max(0.1, obj.prob + (e.deltaY < 0 ? 0.05 : -0.05)));
-        } else {
-          return;
-        }
-        e.preventDefault();
-        cell.style.opacity = 0.3 + obj.velocity * 0.35;
-      };
-      gridRow.appendChild(cell);
-    }
-    row.appendChild(label); row.appendChild(gridRow);
-    drumGridContainer.appendChild(row);
-  });
-
-  // Drum voices
-  function kick(amp=1){
-    // Record kick drum event into the performance timeline
-    try{
-      if(typeof recordPerfEvent === 'function'){
-        const stepDurSec = 60 / tempo;
-        // Kick envelope is roughly 0.15 seconds; convert to steps.
-        const durSteps = Math.max(1, Math.round(0.15 / stepDurSec));
-        recordPerfEvent('Kick', durSteps);
-      }
-    }catch(e){}
-    const g = ctx.createGain(); g.gain.value = .9 * amp; g.connect(kickGain);
-    const o = ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(150, ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + .12);
-    o.connect(g); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .15);
-    o.start(); o.stop(ctx.currentTime + .2);
-    // Sidechain ducking
-    if(duckAmount > 0){
-      synthVol.gain.cancelScheduledValues(ctx.currentTime);
-      synthVol.gain.setTargetAtTime(1 - duckAmount, ctx.currentTime, 0.01);
-      synthVol.gain.setTargetAtTime(1, ctx.currentTime + 0.3, 0.1);
-    }
-  }
-  function snare(amp=1){
-    // Record snare drum event into the performance timeline
-    try{
-      if(typeof recordPerfEvent === 'function'){
-        const stepDurSec = 60 / tempo;
-        const durSteps = Math.max(1, Math.round(0.15 / stepDurSec));
-        recordPerfEvent('Snare', durSteps);
-      }
-    }catch(e){}
-    const len = ctx.sampleRate * .15;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for(let i = 0; i < len; i++){
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/len, 3);
-    }
-    const n = ctx.createBufferSource(); n.buffer = buf;
-    const g = ctx.createGain(); g.gain.value = .6 * amp;
-    n.connect(g); g.connect(snareGain);
-    n.start();
-  }
-  function hat(open=false, amp=1){
-    // Record hi-hat event into the performance timeline
-    try{
-      if(typeof recordPerfEvent === 'function'){
-        const stepDurSec = 60 / tempo;
-        const durSec = open ? 0.25 : 0.05;
-        const durSteps = Math.max(1, Math.round(durSec / stepDurSec));
-        recordPerfEvent(open ? 'OHH' : 'CHH', durSteps);
-      }
-    }catch(e){}
-    const len = ctx.sampleRate * (open ? .25 : .05);
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for(let i = 0; i < len; i++){
-      d[i] = ((Math.random() * 2 - 1) > 0 ? 1 : -1) * Math.pow(1 - i/len, 2.5);
-    }
-    const n = ctx.createBufferSource(); n.buffer = buf;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
-    const g = ctx.createGain(); g.gain.value = (open ? .4 : .25) * amp;
-    n.connect(hp); hp.connect(g);
-    g.connect(open ? ohhGain : chhGain);
-    n.start();
-  }
-
-  // ===== Additional drum voices for Drum Rack =====
-  /**
-   * Clap: simple noise burst with a fast decay, routed through the snare gain.
-   * @param {number} amp Amplitude multiplier (0..1)
-   */
-  function clap(amp=1){
-    const len = ctx.sampleRate * 0.25;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for(let i=0;i<len;i++){
-      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, 2);
-    }
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const g = ctx.createGain(); g.gain.value = 0.7 * amp;
-    src.connect(g); g.connect(snareGain);
-    src.start();
-  }
-
-  /**
-   * Tom: pitched drum using a sine oscillator.  n selects the pitch tier (1–4).
-   * @param {number} n Index of tom (1 to 4)
-   * @param {number} amp Amplitude multiplier (0..1)
-   */
-  function tom(n=1, amp=1){
-    const g = ctx.createGain(); g.gain.value = 0.8 * amp;
-    g.connect(drumBus);
-    const o = ctx.createOscillator(); o.type = 'sine';
-    const freq = 100 + (n * 40);
-    o.frequency.setValueAtTime(freq, ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(freq / 2, ctx.currentTime + 0.35);
-    o.connect(g);
-    g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + 0.4);
-    o.start(); o.stop(ctx.currentTime + 0.45);
-  }
-
-  /**
-   * Percussion: short noise burst with high-pass filtering.  n selects
-   * the cutoff frequency tier (1–4).
-   * @param {number} n Tier of perc (1–4)
-   * @param {number} amp Amplitude multiplier (0..1)
-   */
-  function perc(n=1, amp=1){
-    const len = ctx.sampleRate * 0.15;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for(let i=0;i<len;i++){
-      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, 1.5);
-    }
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500 + n * 500;
-    const g = ctx.createGain(); g.gain.value = 0.6 * amp;
-    src.connect(hp); hp.connect(g); g.connect(drumBus);
-    src.start();
-  }
-
-  // ===== Transport & Clock =====
-  // Playing state and timer.  We no longer use the local step counter here; instead we
-  // employ a global step (globalStep) for arrangement playback.  The pattern step
-  // displayed in the timeline is derived from globalStep via modulo DRUM_STEPS.
-  let playing=false, timer;
-  // Pattern step used for timeline scrubbing and editing.  Separate from globalStep.
-  let step = 0;
-  function tick(){
-    // Compute the pattern-relative step (for timeline and swing) using globalStep
-    const stepInPattern = globalStep % DRUM_STEPS;
-    const spb = 60 / tempo;
-    // Apply swing: shorten even steps and lengthen odd steps
-    let stepDur = spb;
-    if(swingVal > 0){
-      if((stepInPattern % 2) === 0){
-        stepDur = spb * (1 - swingVal);
-      } else {
-        stepDur = spb * (1 + swingVal);
-      }
-    }
-    // For each track and its clips, schedule synth or drum events when globalStep falls within a clip
-    tracks.forEach((track) => {
-      track.clips.forEach((clip) => {
-        const rel = globalStep - clip.start;
-        if(rel >= 0 && rel < clipLength){
-          if(track.type === 'synth'){
-            // Schedule chord/arpeggio for this relative step
-            const cs = stepData[rel % NUM_STEPS];
-            if(cs){
-              const offset = (Math.random() - 0.5) * humanizeAmt * spb;
-              setTimeout(() => {
-                if(arp.enabled) playArp(cs.tones, stepDur);
-                else            playChordStyle(cs.tones, stepDur);
-              }, offset * 1000);
-            }
-          } else if(track.type === 'drums'){
-            // Schedule drum hits for this relative step
-            grid.forEach((row, r) => {
-              const cell = row[rel % DRUM_STEPS];
-              if(cell && cell.on){
-                if(Math.random() <= cell.prob){
-                  const amp = (cell.velocity || 1) * (cell.accent ? 2 : 1);
-                  const offset = (Math.random() - 0.5) * humanizeAmt * stepDur;
-                  setTimeout(() => {
-                    ([kick, snare, (a)=>hat(false,a), (a)=>hat(true,a)])[r](amp);
-                  }, offset * 1000);
-                }
-              }
-            });
-          }
-        }
-      });
-    });
-    // Global note‑repeat across arrangement; apply humanize offset
-    if(noteRepeat.enabled){
-      const sub = Math.max(1, noteRepeat.rate / 4);
-      for(let i=0; i<sub; i++){
-        const offset = (Math.random() - 0.5) * humanizeAmt * stepDur;
-        setTimeout(() => {
-          if(noteRepeat.active[0]) kick();
-          if(noteRepeat.active[1]) snare();
-          if(noteRepeat.active[2]) hat(false);
-          if(noteRepeat.active[3]) hat(true);
-        }, i * (stepDur / sub) * 1000 + offset * 1000);
-      }
-    }
-    // Update timeline (pattern view) and arrangement playhead
-    drawTimeline(stepInPattern);
-    updateArrPlayhead();
-    // Advance the global step for the next tick
-    globalStep++;
-    timer = setTimeout(tick, stepDur * 1000);
-  }
-
-  play.onclick=async()=>{
-    // Start playback if not already playing.  Use the global step counter for sequencing.
-    if (playing) return;
-    await ctx.resume();
-    playing = true;
-    tick();
-  };
-  stop.onclick=()=>{
-    // Stop playback but do not reset the position.  The next play will resume from current globalStep.
-    playing = false;
-    clearTimeout(timer);
-    // Update the timeline to show the current pattern step
-    drawTimeline(globalStep % DRUM_STEPS);
-    // Also update the arrangement playhead visually
-    updateArrPlayhead();
-    lfoGain.gain.setValueAtTime(0, ctx.currentTime);
-    updateLfoRouting();
-    vcf.frequency.cancelScheduledValues(ctx.currentTime);
-    vcf.frequency.setValueAtTime(+flt.value, ctx.currentTime);
-    vcf.Q.cancelScheduledValues(ctx.currentTime);
-  };
-  reset.onclick=()=>{
-    // Reset sequence to the start of the arrangement
-    globalStep = 0;
-    drawTimeline(0);
-    updateArrPlayhead();
-  };
-  panic.onclick = ()=>{
-    // Stop everything and mute briefly
-    playing = false;
-    clearTimeout(timer);
-    drawTimeline(globalStep % DRUM_STEPS);
-    updateArrPlayhead();
-    mix.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
-    setTimeout(() => mix.gain.setTargetAtTime(0.9, ctx.currentTime, 0.03), 120);
-    lfoGain.gain.setValueAtTime(0, ctx.currentTime);
-    updateLfoRouting();
-    vcf.frequency.cancelScheduledValues(ctx.currentTime);
-    vcf.frequency.setValueAtTime(+flt.value, ctx.currentTime);
-    vcf.Q.cancelScheduledValues(ctx.currentTime);
-  };
-
-  // FX controls
-  flt.oninput=()=>vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02);
-  dlyAmt.oninput=()=>dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02);
-  revAmt.oninput=()=>rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02);
-  env.oninput=()=>{}; // reserved
-  kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
-  snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
-  chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
-  ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
-
-  // === New control handlers ===
-  // Swing: 0..0.65 controlling timing offset between alternating steps
-  swing.oninput = () => {
-    swingVal = +swing.value;
-  };
-  // Drive: set amount 0..1 and update drive mixer and waveshaper curve
-  drive.oninput = () => {
-    driveAmt = +drive.value;
-    // update mixer gains (dry vs drive)
-    dryGain.gain.setTargetAtTime(1 - driveAmt, ctx.currentTime, 0.02);
-    driveGain.gain.setTargetAtTime(driveAmt, ctx.currentTime, 0.02);
-    // update waveshaper curve for new drive amount
-    driveNode.curve = makeDriveCurve(driveAmt);
-  };
-  // LFO rate controls frequency of filter modulation (Hz)
-  lfoRate.oninput = () => {
-    const val = +lfoRate.value;
-    lfo.frequency.setTargetAtTime(val, ctx.currentTime, 0.02);
-  };
-  // LFO depth controls amplitude of filter modulation (Hz)
-  lfoDepth.oninput = () => {
-    const val = +lfoDepth.value;
-    lfoGain.gain.setTargetAtTime(val, ctx.currentTime, 0.02);
-    updateLfoRouting();
-  };
-  // LFO shape selects oscillator waveform
-  lfoShape.oninput = () => {
-    lfo.type = lfoShape.value;
-  };
-  // Chorus rate (Hz) influences detune vibrato in voice() via global variable
-  document.getElementById('chorusRate').oninput = (e) => {
-    chorusRateVal = +e.target.value;
-  };
-  // Chorus width (detune amount) influences vibrato depth
-  document.getElementById('chorusWidth').oninput = (e) => {
-    chorusWidthVal = +e.target.value;
-  };
-  // Sidechain duck amount controls reduction of synth volume when kick hits
-  duckAmt.oninput = () => {
-    duckAmount = +duckAmt.value;
-  };
-  // Humanize amount: 0..0.5 controlling timing & velocity randomization factor
-  humanize.oninput = () => {
-    humanizeAmt = +humanize.value;
-  };
-  // Loop A and B: convert 1‑based user input to 0‑based indices for the step scheduler
-  loopA.oninput = () => {
-    const valNum = Math.floor(+loopA.value || 1);
-    // clamp to range 1..DRUM_STEPS
-    const idx = Math.max(1, Math.min(DRUM_STEPS, valNum)) - 1;
-    loopAIdx = idx;
-  };
-  loopB.oninput = () => {
-    const valNum = Math.floor(+loopB.value || DRUM_STEPS);
-    const idx = Math.max(1, Math.min(DRUM_STEPS, valNum)) - 1;
-    loopBIdx = idx;
-  };
-  // Note‑Repeat latch toggler
-  nrLatch.oninput = () => {
-    nrLatchEnabled = nrLatch.checked;
-  };
-
-  // === Patch save/load & stems export ===
-  savePatch.onclick = () => {
-    // Gather synthesizer parameters and state into a plain object
-    const patch = {
-      tempo: tempo,
-      flt: +flt.value,
-      env: +env.value,
-      dly: +dlyAmt.value,
-      rev: +revAmt.value,
-      style: styleSel.value,
-      variation: +variation.value,
-      swing: swingVal,
-      drive: driveAmt,
-      lfoRate: +lfoRate.value,
-      lfoDepth: +lfoDepth.value,
-      lfoShape: lfoShape.value,
-      chorusRate: chorusRateVal,
-      chorusWidth: chorusWidthVal,
-      duck: duckAmount,
-      humanize: humanizeAmt,
-      loopA: loopAIdx + 1,
-      loopB: loopBIdx + 1,
-      noteRepeat: { rate: noteRepeat.rate, enabled: noteRepeat.enabled, latch: nrLatchEnabled },
-      arp: { on: arpOn.checked, rate: +arpRate.value, dir: arpDir.value, oct: +arpOct.value, gate: +arpGate.value },
-      stepData: stepData,
-      grid: grid
-    };
-    const json = JSON.stringify(patch);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'patch.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  loadPatch.onclick = () => {
-    patchFile.value = '';
-    patchFile.click();
-  };
-  patchFile.onchange = () => {
-    const file = patchFile.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try{
-        const data = JSON.parse(e.target.result);
-        // Restore parameters
-        if(data.tempo){ tempo = data.tempo; tempoEl.textContent = tempo.toFixed(1); if(tempoSlider) tempoSlider.value = tempo; }
-        if(data.flt!=null){ flt.value = data.flt; flt.oninput(); }
-        if(data.env!=null){ env.value = data.env; env.oninput(); }
-        if(data.dly!=null){ dlyAmt.value = data.dly; dlyAmt.oninput(); }
-        if(data.rev!=null){ revAmt.value = data.rev; revAmt.oninput(); }
-        if(data.style){ styleSel.value = data.style; }
-        if(data.variation!=null){ variation.value = data.variation; }
-        if(data.swing!=null){ swing.value = data.swing; swing.oninput(); }
-        if(data.drive!=null){ drive.value = data.drive; drive.oninput(); }
-        if(data.lfoRate!=null){ lfoRate.value = data.lfoRate; lfoRate.oninput(); }
-        if(data.lfoDepth!=null){ lfoDepth.value = data.lfoDepth; lfoDepth.oninput(); }
-        if(data.lfoShape){ lfoShape.value = data.lfoShape; lfoShape.oninput(); }
-        if(data.chorusRate!=null){ document.getElementById('chorusRate').value = data.chorusRate; document.getElementById('chorusRate').dispatchEvent(new Event('input')); }
-        if(data.chorusWidth!=null){ document.getElementById('chorusWidth').value = data.chorusWidth; document.getElementById('chorusWidth').dispatchEvent(new Event('input')); }
-        if(data.duck!=null){ duckAmt.value = data.duck; duckAmt.oninput(); }
-        if(data.humanize!=null){ humanize.value = data.humanize; humanize.oninput(); }
-        if(data.loopA!=null){ loopA.value = data.loopA; loopA.dispatchEvent(new Event('input')); }
-        if(data.loopB!=null){ loopB.value = data.loopB; loopB.dispatchEvent(new Event('input')); }
-        if(data.noteRepeat){
-          if(data.noteRepeat.rate!=null){ nrRate.value = data.noteRepeat.rate; noteRepeat.rate = data.noteRepeat.rate; }
-          if(data.noteRepeat.enabled!=null){ nrOn.checked = data.noteRepeat.enabled; noteRepeat.enabled = data.noteRepeat.enabled; }
-          if(data.noteRepeat.latch!=null){ nrLatch.checked = data.noteRepeat.latch; nrLatch.oninput(); }
-        }
-        if(data.arp){
-          arpOn.checked = !!data.arp.on;
-          if(data.arp.rate!=null) arpRate.value = data.arp.rate;
-          if(data.arp.dir) arpDir.value = data.arp.dir;
-          if(data.arp.oct!=null) arpOct.value = data.arp.oct;
-          if(data.arp.gate!=null) arpGate.value = data.arp.gate;
-          updateArpFromUI();
-        }
-        // Restore stepData (chords)
-        if(Array.isArray(data.stepData)){
-          for(let i=0; i<stepData.length; i++){
-            stepData[i] = data.stepData[i] ? JSON.parse(JSON.stringify(data.stepData[i])) : null;
-          }
-          refreshPadsHighlight();
-          refreshSteps();
-        }
-        // Restore drum grid
-        if(Array.isArray(data.grid)){
-          for(let r=0; r<drums.length; r++){
-            for(let c=0; c<DRUM_STEPS; c++){
-              const loaded = data.grid[r][c];
-              if(loaded){
-                grid[r][c].on = !!loaded.on;
-                grid[r][c].accent = !!loaded.accent;
-                grid[r][c].velocity = loaded.velocity != null ? loaded.velocity : 1;
-                grid[r][c].prob = loaded.prob != null ? loaded.prob : 1;
-              } else {
-                grid[r][c].on = false;
-                grid[r][c].accent = false;
-                grid[r][c].velocity = 1;
-                grid[r][c].prob = 1;
-              }
-            }
-          }
-          // update cell visuals
-          const rowsEls = drumGridContainer.querySelectorAll('.drumGridRow');
-          rowsEls.forEach((rowEl, r) => {
-            const cells = rowEl.querySelectorAll('.drumCell');
-            cells.forEach((cellEl, c) => {
-              const obj = grid[r][c];
-              cellEl.classList.toggle('active', obj.on);
-              cellEl.classList.toggle('accent', obj.accent);
-              cellEl.style.opacity = 0.3 + obj.velocity * 0.35;
-            });
-          });
-        }
-        drawTimeline(step);
-      } catch(err){
-        alert('Invalid patch file');
-        console.error(err);
-      }
-    };
-    reader.readAsText(file);
-  };
-  exportStems.onclick = () => {
-    alert('Stems export is not implemented yet in this demo.');
-  };
-
-  // ===== Arrangement view (multi‑track arranger) =====
-  // Multi‑track arrangement allows separate rows for synth and drums.  Each track
-  // maintains its own list of clips (start positions in steps) and color.
-  const arrangementTracksEl = document.getElementById('arrangementTracks');
-  const arrPlayhead = document.getElementById('arrPlayhead');
-  // Pattern length in steps (drum pattern length).  Clips span this many steps.
-  const clipLength = DRUM_STEPS;
-  // Continuous step counter for arrangement playback
-  let globalStep = 0;
-  // Total steps in current arrangement; ensures looping playback
-  let arrangementLength = clipLength; 
-  // Define tracks: synth and drums.  Each track has a name, type, color and list of clips
-  const tracks = [
-    { name: 'Synth', type: 'synth', color: '#4478e2', clips: [{ start: 0 }] },
-    { name: 'Drums', type: 'drums', color: '#e58a0e', clips: [{ start: 0 }] }
-  ];
-  // Dragging state for clips: track index and clip index being dragged
-  let draggedTrackIdx = null;
-  let draggedClipIdx = null;
-  let dragStartX = 0;
-  let initialStart = 0;
-
-  /**
-   * Render the arrangement tracks and clips.  Each track row displays a label,
-   * its clips as draggable colored boxes, and a + button to add new clips.
-   */
-  function drawArrangement(){
-    const stepWidth = 20;
-    // Determine required width based on clips across all tracks
-    let maxStep = clipLength;
-    tracks.forEach(track => {
-      track.clips.forEach(clip => {
-        if (clip.start + clipLength > maxStep) maxStep = clip.start + clipLength;
-      });
-    });
-    // Update total arrangement length for looping
-    arrangementLength = maxStep;
-    // Set container width
-    arrangementTracksEl.style.width = (maxStep * stepWidth) + 'px';
-    // Clear existing content
-    arrangementTracksEl.innerHTML = '';
-    // For each track, build a row
-    tracks.forEach((track, tIdx) => {
-      const row = document.createElement('div');
-      row.className = 'arrTrack';
-      // Label
-      const label = document.createElement('div');
-      label.className = 'arrTrackLabel';
-      label.textContent = track.name;
-      row.appendChild(label);
-      // Row container for clips
-      const rowContainer = document.createElement('div');
-      rowContainer.className = 'arrTrackRow';
-      // Create clip elements
-      track.clips.forEach((clip, cIdx) => {
-        const el = document.createElement('div');
-        el.className = 'arrClip';
-        el.style.left = (clip.start * stepWidth) + 'px';
-        el.style.width = (clipLength * stepWidth) + 'px';
-        el.style.background = track.color;
-        el.style.borderColor = track.color;
-        el.textContent = `${track.name} ${cIdx + 1}`;
-        el.onmousedown = (e) => {
-          e.preventDefault();
-          draggedTrackIdx = tIdx;
-          draggedClipIdx = cIdx;
-          dragStartX = e.clientX;
-          initialStart = clip.start;
-          document.addEventListener('mousemove', onClipMove);
-          document.addEventListener('mouseup', onClipUp);
-        };
-        rowContainer.appendChild(el);
-      });
-      // Add clip button for this track
-      const addBtn = document.createElement('button');
-      addBtn.className = 'arrAddClip';
-      addBtn.textContent = '+';
-      addBtn.title = 'Добави нов клип';
-      addBtn.onclick = () => {
-        let maxStart = 0;
-        track.clips.forEach(cl => { if (cl.start > maxStart) maxStart = cl.start; });
-        track.clips.push({ start: maxStart + clipLength });
-        drawArrangement();
-      };
-      rowContainer.appendChild(addBtn);
-      row.appendChild(rowContainer);
-      arrangementTracksEl.appendChild(row);
-    });
-    updateArrPlayhead();
-  }
-  /**
-   * During dragging, convert horizontal pixel movement to steps and update
-   * the clip's start within its track.  The clip is clamped at zero.
-   */
-  function onClipMove(e){
-    if (draggedTrackIdx === null || draggedClipIdx === null) return;
-    const stepWidth = 20;
-    const deltaPx = e.clientX - dragStartX;
-    const dSteps = Math.round(deltaPx / stepWidth);
-    const newStart = Math.max(0, initialStart + dSteps);
-    tracks[draggedTrackIdx].clips[draggedClipIdx].start = newStart;
-    drawArrangement();
-  }
-  /**
-   * End dragging; remove event listeners and reset drag state.
-   */
-  function onClipUp(){
-    draggedTrackIdx = null;
-    draggedClipIdx = null;
-    document.removeEventListener('mousemove', onClipMove);
-    document.removeEventListener('mouseup', onClipUp);
-  }
-  /**
-   * Update arrangement playhead: position left based on globalStep and adjust
-   * height to span all tracks.  Also extends arrangement width if needed.
-   */
-  function updateArrPlayhead(){
-    const stepWidth = 20;
-    // Position playhead horizontally by current global step
-    arrPlayhead.style.left = (globalStep * stepWidth) + 'px';
-    // Position playhead vertically to align with the arrangement container and span its height
-    // Use offsetTop to compute the top relative to the device container
-    const topOffset = arrangementTracksEl.offsetTop;
-    arrPlayhead.style.top = topOffset + 'px';
-    arrPlayhead.style.bottom = '';
-    const totalHeight = arrangementTracksEl.offsetHeight;
-    arrPlayhead.style.height = totalHeight + 'px';
-    // Extend arrangement width if playhead moves beyond current width
-    const requiredWidth = (globalStep + 1) * stepWidth;
-    const currentWidth = parseFloat(arrangementTracksEl.style.width) || 0;
-    if (requiredWidth > currentWidth) {
-      arrangementTracksEl.style.width = requiredWidth + 'px';
-    }
-  }
-  // Initial render of arrangement tracks
-  drawArrangement();
-
-  // Recorder button handler leveraging both the manual ScriptProcessorNode for
-  // high‑quality PCM capture and MediaRecorder for an additional compressed
-  // format (e.g. webm/ogg).  When recording starts, the manual buffers
-  // are cleared and a MediaRecorder is created using a supported MIME.
-  // When recording stops the PCM is flattened and encoded to WAV.  The
-  // compressed data from MediaRecorder is kept as an alternate download.
-  // Clicking the download button will open a small overlay allowing the
-  // user to choose the desired format.  This avoids automatic multi‑file
-  // downloads that some browsers block.
-  rec.onclick = async () => {
-    if (recording) {
-      // Stop recording and finalise audio
-      recording = false;
-      rec.textContent = 'Rec';
-      // Process manual buffers and enable download
-      prepareManualDownload();
-    } else {
-      // Start recording
-      await ctx.resume();
-      manualL.length = 0;
-      manualR.length = 0;
-      recording = true;
-      rec.textContent = 'Stop Rec';
-    }
-  };
-
-  /**
-   * Flatten the manual PCM buffers, encode to WAV, and create download URLs
-   * for both the WAV file and the compressed recording (if available).
-   * Once complete the download button becomes active and opens a small
-   * popup with format options.
-   * @param {string} altExt Extension of the compressed format ('webm','ogg', etc.)
-   */
-  function prepareDownload(altExt = 'webm') {
-    // Flatten manual buffers into single channels
-    let total = 0;
-    for (const buf of manualL) total += buf.length;
-    const left = new Float32Array(total);
-    const right = new Float32Array(total);
-    let pos = 0;
-    for (let i = 0; i < manualL.length; i++) {
-      left.set(manualL[i], pos);
-      right.set(manualR[i], pos);
-      pos += manualL[i].length;
-    }
-    manualL.length = 0;
-    manualR.length = 0;
-    // Encode WAV
-    const wavBlob = encodeWAV([left, right], ctx.sampleRate);
-    const wavURL = URL.createObjectURL(wavBlob);
-    let altURL = null;
-    // Create Blob for the compressed recording if we have chunks and a real alt format
-    if (mrChunks && mrChunks.length && altExt !== 'wav') {
-      const type = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : '';
-      const altBlob = new Blob(mrChunks, { type });
-      altURL = URL.createObjectURL(altBlob);
-    }
-    // Enable download button
-    dl.removeAttribute('disabled');
-    dl.disabled = false;
-    // Assign click to open menu
-    dl.onclick = () => {
-      showDownloadMenu(wavURL, altURL, altExt);
-    };
-  }
-
-  /**
-   * Finalise recording from the manual ScriptProcessorNode only.  This
-   * function flattens the accumulated PCM buffers, encodes a WAV and
-   * also creates an interleaved Float32Array to expose a raw PCM
-   * download.  The download button becomes active and opens a menu
-   * with both formats (WAV and PCM) when clicked.
-   */
-  function prepareManualDownload() {
-    // Flatten left/right buffers
-    let total = 0;
-    for (const buf of manualL) total += buf.length;
-    const left = new Float32Array(total);
-    const right = new Float32Array(total);
-    let pos = 0;
-    for (let i = 0; i < manualL.length; i++) {
-      left.set(manualL[i], pos);
-      right.set(manualR[i], pos);
-      pos += manualL[i].length;
-    }
-    // clear buffers
-    manualL.length = 0;
-    manualR.length = 0;
-    // Encode to WAV
-    const wavBlob = encodeWAV([left, right], ctx.sampleRate);
-    const wavURL = URL.createObjectURL(wavBlob);
-    // Build interleaved PCM (Float32) for alternative download
-    const pcmInterleaved = new Float32Array(total * 2);
-    for (let i = 0; i < total; i++) {
-      pcmInterleaved[2 * i] = left[i];
-      pcmInterleaved[2 * i + 1] = right[i];
-    }
-    const pcmBlob = new Blob([pcmInterleaved.buffer], { type: 'application/octet-stream' });
-    const pcmURL = URL.createObjectURL(pcmBlob);
-    // Activate download button and assign menu
-    dl.removeAttribute('disabled');
-    dl.disabled = false;
-    dl.onclick = () => {
-      showDownloadMenu(wavURL, pcmURL, 'pcm');
-    };
-  }
-
-  /**
-   * Create and display a small overlay with download options.  Two
-   * links are provided: one for the WAV file and one for the compressed
-   * recording if available.  Clicking outside the menu dismisses it.
-   * @param {string} wavURL Object URL for the WAV file
-   * @param {?string} altURL Object URL for the compressed file
-   * @param {string} altExt Extension name (e.g. 'webm' or 'ogg')
-   */
-  function showDownloadMenu(wavURL, altURL, altExt) {
-    // Remove any existing menu
-    const old = document.getElementById('downloadMenu');
-    if (old) old.remove();
-    // Build menu container
-    const menu = document.createElement('div');
-    menu.id = 'downloadMenu';
-    // Position relative to bottom right of device panel
-    menu.style.position = 'fixed';
-    menu.style.bottom = '80px';
-    menu.style.right = '40px';
-    menu.style.background = '#2b2b2b';
-    menu.style.border = '1px solid #444';
-    menu.style.borderRadius = '8px';
-    menu.style.padding = '10px';
-    menu.style.zIndex = '100';
-    // Title
-    const title = document.createElement('div');
-    title.textContent = 'Download format:';
-    title.style.color = '#ccc';
-    title.style.marginBottom = '6px';
-    menu.appendChild(title);
-    // WAV link
-    const wavLink = document.createElement('a');
-    wavLink.href = wavURL;
-    wavLink.download = 'take.wav';
-    wavLink.textContent = 'WAV';
-    wavLink.style.display = 'block';
-    wavLink.style.padding = '6px 8px';
-    wavLink.style.borderRadius = '6px';
-    wavLink.style.background = '#444';
-    wavLink.style.color = '#fff';
-    wavLink.style.marginBottom = '4px';
-    wavLink.style.textDecoration = 'none';
-    wavLink.onmousedown = () => flash(wavLink);
-    menu.appendChild(wavLink);
-    // Alt link if available
-    if (altURL) {
-      const altLink = document.createElement('a');
-      altLink.href = altURL;
-      altLink.download = `take.${altExt}`;
-      altLink.textContent = altExt.toUpperCase();
-      altLink.style.display = 'block';
-      altLink.style.padding = '6px 8px';
-      altLink.style.borderRadius = '6px';
-      altLink.style.background = '#444';
-      altLink.style.color = '#fff';
-      altLink.style.marginBottom = '4px';
-      altLink.style.textDecoration = 'none';
-      altLink.onmousedown = () => flash(altLink);
-      menu.appendChild(altLink);
-    }
-    document.body.appendChild(menu);
-    // Hide when clicking outside
-    const dismiss = (ev) => {
-      if (!menu.contains(ev.target) && ev.target !== dl) {
-        menu.remove();
-        document.removeEventListener('mousedown', dismiss);
-      }
-    };
-    setTimeout(() => {
-      document.addEventListener('mousedown', dismiss);
-    }, 0);
-  }
-
-  // ===== Timeline drawing & seeking (+ tooltip) =====
-  function drawTimeline(current=step){
-    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
-    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad;
-    const colW=innerW/DRUM_STEPS; const rows=drums.length+1; // +1 за акорди
-    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H);
-    tctx.strokeStyle='#333'; tctx.lineWidth=1;
-    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
-    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
-    // chords (top row)
-    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
-    // drums
-    for(let r=0; r<drums.length; r++){
-      for(let s=0; s<DRUM_STEPS; s++){
-        const cell = grid[r][s];
-        if(cell && cell.on){
-          // Use row colour for drums.  Accent cells could be highlighted differently if desired.
-          tctx.fillStyle = ['#f60','#e5e','#9cf','#fc3'][r];
-          const y = y0 + (r + 1) * (innerH / rows) + 2 - (innerH / rows);
-          tctx.fillRect(x0 + s * colW + 3, y + 2, colW - 6, (innerH / rows) - 6);
-        }
-      }
-    }
-    // playhead
-    tctx.fillStyle= '#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
-  }
-
-  // seek
-  let dragging=false;
-  function stepFromEvent(e){ const rect=timeline.getBoundingClientRect(); const x=e.clientX-rect.left; const col=Math.floor((x/rect.width)*DRUM_STEPS); return Math.max(0,Math.min(DRUM_STEPS-1,col)); }
-  timeline.addEventListener('mousedown',(e)=>{dragging=true; step=stepFromEvent(e); drawTimeline(step)});
-  window.addEventListener('mousemove',(e)=>{ if(dragging){ step=stepFromEvent(e); drawTimeline(step);} });
-  window.addEventListener('mouseup',()=>dragging=false);
-  timeline.addEventListener('dblclick',()=>{ step=0; drawTimeline(step)});
-
-  // Timeline tooltip for chords
-  timeline.addEventListener('mousemove',(e)=>{ const s=stepFromEvent(e); const cs=stepData[s%NUM_STEPS]; timeline.title=`Step ${s+1} — Chord: ${chordLabel(cs)} | Клик=мествай, Drag=скрубин, Двоен клик=Reset`; });
-
-  // ===== Patch Browser =====
-  const PATCHES=[
-    {name:'Juno Pad', tags:['pad','warm'], desc:'Мек пад с повече reverb', params:{flt:1400, env:.7, dly:.25, rev:.45, style:'Chord', arp:{on:false}}},
-    {name:'Bright Pluck', tags:['pluck','arp'], desc:'Яръкpluck; бърз decay', params:{flt:3200, env:.18, dly:.15, rev:.15, style:'Chord', arp:{on:true, rate:16, dir:'Up', oct:1, gate:.55}}},
-    {name:'Runner UpDown', tags:['arp','motion'], desc:'Up-Down арпежио, 2 октави', params:{flt:2200, env:.30, dly:.2, rev:.2, style:'Chord', arp:{on:true, rate:16, dir:'UpDown', oct:2, gate:.6}}},
-    {name:'Wide Space', tags:['pad','space'], desc:'Широк пространствен пад', params:{flt:1200, env:.8, dly:.32, rev:.55, style:'Chord', arp:{on:false}}},
-    {name:'Classic Random', tags:['arp','random'], desc:'Random арпежио', params:{flt:2500, env:.35, dly:.18, rev:.22, style:'Chord', arp:{on:true, rate:8, dir:'Random', oct:1, gate:.6}}}
-  ];
-  function applyPatch(p){
-    if(p.params.flt!=null){ flt.value=p.params.flt; vcf.frequency.setTargetAtTime(+flt.value,ctx.currentTime,.02); }
-    if(p.params.env!=null){ env.value=p.params.env; }
-    if(p.params.dly!=null){ dlyAmt.value=p.params.dly; dGain.gain.setTargetAtTime(+dlyAmt.value,ctx.currentTime,.02); }
-    if(p.params.rev!=null){ revAmt.value=p.params.rev; rGain.gain.setTargetAtTime(+revAmt.value,ctx.currentTime,.02); }
-    if(p.params.style){ styleSel.value=p.params.style; }
-    if(p.params.arp){
-      arpOn.checked=!!p.params.arp.on;
-      if(p.params.arp.rate) arpRate.value=p.params.arp.rate;
-      if(p.params.arp.dir) arpDir.value=p.params.arp.dir;
-      if(p.params.arp.oct) arpOct.value=p.params.arp.oct;
-      if(p.params.arp.gate) arpGate.value=p.params.arp.gate;
-      updateArpFromUI();
-    }
-  }
-  function previewPatch(p){
-    const prev={flt:+flt.value, env:+env.value, dly:+dlyAmt.value, rev:+revAmt.value, style:styleSel.value,
-      arp:{on:arpOn.checked, rate:+arpRate.value, dir:arpDir.value, oct:+arpOct.value, gate:+arpGate.value}};
-    applyPatch(p);
-    // Cmaj7 тестов акорд
-    const tones=[48,52,55,59]; const spb=60/tempo;
-    if(arpOn.checked) playArp(tones, spb); else playChordStyle(tones, spb);
-    // връщане след 1.2s
-    setTimeout(()=>applyPatch({params:prev}),1200);
-  }
-
-  function renderPatchBrowser(){
-    patchGrid.innerHTML='';
-    PATCHES.forEach(p=>{
-      const card=document.createElement('div'); card.className='patch';
-      card.innerHTML=`<h4>${p.name}</h4><p>${p.desc}</p>
-        <div style="margin-bottom:6px">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
-        <div class="rowBtns"><button class="btn" title="Чуй предварително">Preview</button><button class="btn primary" title="Зареди патча">Load</button></div>`;
-      const [btnPrev,btnLoad]=card.querySelectorAll('button');
-      btnPrev.onclick=()=>previewPatch(p);
-      btnLoad.onclick=()=>applyPatch(p);
-      patchGrid.appendChild(card);
-    });
-  }
-  openPatches.onclick=()=>{ renderPatchBrowser(); patchModal.style.display='flex'; };
-  closePatches.onclick=()=>patchModal.style.display='none';
-
-  // ===== Init =====
-  kickVol.oninput=()=>kickGain.gain.setTargetAtTime(+kickVol.value,ctx.currentTime,.02);
-  snareVol.oninput=()=>snareGain.gain.setTargetAtTime(+snareVol.value,ctx.currentTime,.02);
-  chhVol.oninput=()=>chhGain.gain.setTargetAtTime(+chhVol.value,ctx.currentTime,.02);
-  ohhVol.oninput=()=>ohhGain.gain.setTargetAtTime(+ohhVol.value,ctx.currentTime,.02);
-
-  function drawTimeline(current=0){
-    const W=timeline.clientWidth, H=timeline.clientHeight; timeline.width=W; timeline.height=H;
-    const pad=10, innerW=W-2*pad, innerH=H-2*pad; const x0=pad, y0=pad; const colW=innerW/DRUM_STEPS; const rows=drums.length+1;
-    tctx.clearRect(0,0,W,H); tctx.fillStyle='#111'; tctx.fillRect(0,0,W,H); tctx.strokeStyle='#333'; tctx.lineWidth=1;
-    for(let c=0;c<=DRUM_STEPS;c++){ const x=x0+c*colW; tctx.beginPath(); tctx.moveTo(x,y0); tctx.lineTo(x,y0+innerH); tctx.stroke(); }
-    for(let r=0;r<=rows;r++){ const y=y0+r*(innerH/rows); tctx.beginPath(); tctx.moveTo(x0,y); tctx.lineTo(x0+innerW,y); tctx.stroke(); }
-    for(let s=0;s<DRUM_STEPS;s++){ const has=stepData[s%NUM_STEPS]!=null; if(has){ tctx.fillStyle='#4a7'; tctx.fillRect(x0+s*colW+2, y0+2, colW-4,(innerH/rows)-4); } }
-    for(let r=0; r<drums.length; r++){
-      for(let s=0; s<DRUM_STEPS; s++){
-        const cell = grid[r][s];
-        if(cell && cell.on){
-          tctx.fillStyle = ['#f60','#e5e','#9cf','#fc3'][r];
-          const y = y0 + (r + 1) * (innerH / rows) + 2 - (innerH / rows);
-          tctx.fillRect(x0 + s * colW + 3, y + 2, colW - 6, (innerH / rows) - 6);
-        }
-      }
-    }
-    tctx.fillStyle='#ff3b30'; const phx=x0+(current%DRUM_STEPS)*colW; tctx.fillRect(phx-1,y0,2,innerH);
-  }
-
-  // initial state
-  refreshPadsHighlight(); drawTimeline(0);
-
-  /* -------------------------------------------------------------------------
-   * Performance timeline for recording individual sounds
-   * This timeline captures every synth voice and drum hit triggered by the
-   * instrument.  Each recorded event is rendered as a draggable "clip" on
-   * its own track (Synth, Kick, Snare, CHH, OHH).  Users can move clips
-   * horizontally to reorder events, resize them by dragging the right edge,
-   * or delete them by double clicking.  The timeline starts empty and grows
-   * as the user generates sounds.  It does not interfere with the existing
-   * pattern timeline or arrangement view.
-   */
-
-  // Helper for recording events.  Declared as a function so it is hoisted
-  // and available to voice(), kick(), snare(), and hat() even though those
-  // definitions appear earlier in the file.
-  function recordPerfEvent(trackName, duration=1){
-    try{
-      if(typeof perfTracks === 'undefined' || !perfTracks) return;
-      const track = perfTracks.find(t => t.name === trackName);
-      if(!track) return;
-      // Append a new clip at the next available step for this track
-      const start = track.nextStep || 0;
-      track.clips.push({ start, duration });
-      track.nextStep = (track.nextStep || 0) + duration;
-      // Re-render the performance timeline if drawPerformance is defined
-      if(typeof drawPerformance === 'function') drawPerformance();
-      if(typeof syncPerfToArrangement === 'function') syncPerfToArrangement();
-    }catch(e){}
-  }
-
-  // If the performanceTracks element exists in the DOM, set up the tracks and
-  // drawing routines.  This guards against the timeline not being present.
-  const performanceTracksEl = document.getElementById('performanceTracks');
-  // Global step width (zoom) for performance timeline
-  var perfStepWidth = 20;
-  function setPerfZoom(px){
-    perfStepWidth = Math.max(10, Math.min(60, px|0));
-    if(typeof drawPerformance === 'function') drawPerformance();
-      if(typeof syncPerfToArrangement === 'function') syncPerfToArrangement();
-  }
-  // Sync performance (clips) into arranger `tracks` used by audio scheduling
-  function syncPerfToArrangement(){
-    try{
-      if(typeof tracks === 'undefined' || !tracks) return;
-      const s = perfTracks.find(t=>t.name==='Synth');
-      const d = perfTracks.find(t=>t.name==='Drums');
-      if(s){ tracks[0].clips = s.clips.map(c => ({ start: c.start })); }
-      if(d){ tracks[1].clips = d.clips.map(c => ({ start: c.start })); }
-      if(typeof drawArrangement === 'function') drawArrangement();
-    }catch(e){}
-  }
-
-  if(performanceTracksEl){
-    const perfZoomSlider = document.getElementById('perfZoom');
-    if(perfZoomSlider){ perfZoomSlider.addEventListener('input', ()=> setPerfZoom(+perfZoomSlider.value)); }
-    // Define an array of track objects.  Each track keeps a colour, a
-    // nextStep counter, and a list of recorded clips.  Using `var` for these
-    // declarations ensures they are accessible within recordPerfEvent.
-    var perfTracks = [
-      { name:'Synth', color:'#4478e2', nextStep:0, clips:[] },
-      { name:'Kick',  color:'#f60',    nextStep:0, clips:[] },
-      { name:'Snare', color:'#e5e',    nextStep:0, clips:[] },
-      { name:'CHH',   color:'#9cf',    nextStep:0, clips:[] },
-      { name:'OHH',   color:'#fc3',    nextStep:0, clips:[] }
-    ];
-    // Dragging state for clips in the performance timeline
-    var perfDraggedTrackIdx = null;
-    var perfDraggedClipIdx = null;
-    var perfDragStartX = 0;
-    var perfInitialStart = 0;
-    var perfResizing = false;
-    var perfInitialDuration = 0;
-
-    /**
-     * Render the performance timeline.  Each track row displays its clips as
-     * draggable, optionally resizable boxes.  The overall container width is
-     * determined by the furthest end of any clip.
-     */
-    function drawPerformance(){
-      const stepWidth = perfStepWidth;
-      // Determine the required width across all tracks
-      let maxStep = 0;
-      perfTracks.forEach(track => {
-        track.clips.forEach(clip => {
-          const end = clip.start + clip.duration;
-          if(end > maxStep) maxStep = end;
-        });
-      });
-      // Ensure the timeline has a minimum number of steps when empty.  Without
-      // this, an empty performance timeline collapses to zero width, hiding
-      // the track labels.  We use a sensible default so the user can see
-      // track rows even before any clips are recorded.
-      const defaultSteps = 16;
-      const totalSteps = Math.max(defaultSteps, maxStep);
-      performanceTracksEl.style.width = (totalSteps * stepWidth) + 'px';
-      performanceTracksEl.innerHTML = '';
-      // Click background to scrub playhead to a step
-      performanceTracksEl.onmousedown = (e)=>{
-        if(e.target !== performanceTracksEl) return;
-        const rect = performanceTracksEl.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const step = Math.max(0, Math.floor(x / stepWidth));
-        globalStep = step;
-        if(typeof drawTimeline==='function') drawTimeline(step % DRUM_STEPS);
-        if(typeof updateArrPlayhead==='function') updateArrPlayhead();
-      };
-      // Ctrl/Cmd + wheel to zoom horizontally
-      performanceTracksEl.onwheel = (e)=>{
-        if(e.ctrlKey || e.metaKey){ e.preventDefault(); setPerfZoom(perfStepWidth + (e.deltaY < 0 ? 2 : -2)); }
-      };
-      perfTracks.forEach((track, tIdx) => {
-        const row = document.createElement('div');
-        row.className = 'arrTrack';
-        // Label
-        const label = document.createElement('div');
-        label.className = 'arrTrackLabel';
-        label.textContent = track.name;
-        row.appendChild(label);
-        // Row container for clips
-        const rowContainer = document.createElement('div');
-        rowContainer.className = 'arrTrackRow';
-        // Create clip elements for this track
-        track.clips.forEach((clip, cIdx) => {
-          const el = document.createElement('div');
-          el.className = 'arrClip';
-          el.style.left = (clip.start * stepWidth) + 'px';
-          el.style.width = (clip.duration * stepWidth) + 'px';
-          el.style.background = track.color;
-          el.style.borderColor = track.color;
-          // Left empty to avoid overlay text clutter; optional text could go here
-          el.textContent = '';
-          // Handle click/drag events
-          el.onmousedown = (e) => {
-            e.preventDefault();
-            const rect = el.getBoundingClientRect();
-            // If click near right edge (within 6px), initiate resizing
-            if(rect.width - (e.clientX - rect.left) < 6){
-              perfDraggedTrackIdx = tIdx;
-              perfDraggedClipIdx = cIdx;
-              perfResizing = true;
-              perfDragStartX = e.clientX;
-              perfInitialDuration = clip.duration;
-              document.addEventListener('mousemove', onPerfResize);
-              document.addEventListener('mouseup', onPerfResizeEnd);
-            } else {
-              // Otherwise initiate moving
-              perfDraggedTrackIdx = tIdx;
-              perfDraggedClipIdx = cIdx;
-              perfResizing = false;
-              perfDragStartX = e.clientX;
-              perfInitialStart = clip.start;
-              document.addEventListener('mousemove', onPerfMove);
-              document.addEventListener('mouseup', onPerfUp);
-            }
-          };
-          // Double click to delete the clip
-          el.ondblclick = () => {
-            track.clips.splice(cIdx, 1);
-            drawPerformance();
-          };
-          rowContainer.appendChild(el);
-        });
-        row.appendChild(rowContainer);
-        performanceTracksEl.appendChild(row);
-      });
-    }
-    // Move handler: update the clip's start based on mouse movement
-    function onPerfMove(e){
-      if(perfDraggedTrackIdx === null || perfDraggedClipIdx === null) return;
-      const stepWidth = 20;
-      const deltaPx = e.clientX - perfDragStartX;
-      const dSteps = Math.round(deltaPx / stepWidth);
-      const newStart = Math.max(0, perfInitialStart + dSteps);
-      perfTracks[perfDraggedTrackIdx].clips[perfDraggedClipIdx].start = newStart;
-      drawPerformance();
-    }
-    // Mouseup handler after moving
-    function onPerfUp(){
-      perfDraggedTrackIdx = null;
-      perfDraggedClipIdx = null;
-      document.removeEventListener('mousemove', onPerfMove);
-      document.removeEventListener('mouseup', onPerfUp);
-      // Sync edits to audio arranger
-      syncPerfToArrangement();
-    }
-    // Resize handler: update clip duration
-    function onPerfResize(e){
-      if(perfDraggedTrackIdx === null || perfDraggedClipIdx === null) return;
-      const stepWidth = 20;
-      const deltaPx = e.clientX - perfDragStartX;
-      const dSteps = Math.round(deltaPx / stepWidth);
-      const newDuration = Math.max(1, perfInitialDuration + dSteps);
-      perfTracks[perfDraggedTrackIdx].clips[perfDraggedClipIdx].duration = newDuration;
-      drawPerformance();
-    }
-    // Mouseup handler after resizing
-    function onPerfResizeEnd(){
-      perfDraggedTrackIdx = null;
-      perfDraggedClipIdx = null;
-      perfResizing = false;
-      document.removeEventListener('mousemove', onPerfResize);
-      document.removeEventListener('mouseup', onPerfResizeEnd);
-      // Sync edits to audio arranger
-      syncPerfToArrangement();
-    }
-    // Initial empty draw
-    drawPerformance();
-  }
-
-  // ===== MIDI Learn & MPK mini mk3 Mapping =====
-  // Pitch bend amount in semitones (±2 by default)
-  let pitchBendSemi = 0;
-  /**
-   * Handle incoming MIDI messages.  Routes note and control events
-   * to appropriate handlers and maintains pitch bend state.
-   */
-  function handleMIDIMessage(e){
-    const [status, data1, data2] = e.data;
-    const cmd = status & 0xF0;
-    if(cmd === 0x90 && data2 > 0){
-      handleNoteOn(data1, data2 / 127);
-    } else if(cmd === 0x80 || (cmd === 0x90 && data2 === 0)){
-      handleNoteOff(data1);
-    } else if(cmd === 0xB0){
-      handleControlChange(data1, data2);
-    } else if(cmd === 0xE0){
-      const value14 = (data2 << 7) | data1;
-      pitchBendSemi = (value14 - 8192) / 8192 * 2;
-    }
-  }
-  /**
-   * Note-on handler.  Pads on the AKAI MPK mini mk3 send notes 36–51;
-   * map them to the 16 drum rack pads.  Other notes trigger the
-   * synthesizer voice directly.  Velocity controls amplitude.
-   * @param {number} note MIDI note number
-   * @param {number} vel Normalized velocity (0..1)
-   */
-  function handleNoteOn(note, vel){
-    if(note >= 36 && note < 36 + drumRackPads.length){
-      const idx = note - 36;
-      playDrumPad(idx, vel);
-    } else {
-      const freq = mtof(note) * Math.pow(2, pitchBendSemi / 12);
-      voice(freq, 0.4, vel);
-    }
-  }
-  /**
-   * Note-off handler.  Currently unused because voices are one-shot.
-   */
-  function handleNoteOff(note){ }
-  /**
-   * Control change handler.  Maps knobs to macros and other parameters.
-   * On the MPK mini mk3 the eight knobs typically send CC70–77.  The
-   * first four knobs adjust the four macros; additional knobs also map
-   * to macros so users can remap in their software if needed.  The
-   * mod wheel (CC1) controls filter LFO depth and CC7 controls
-   * synthesizer volume.
-   * @param {number} cc Controller number
-   * @param {number} val Raw value (0–127)
-   */
-  function handleControlChange(cc, val){
-    const normalized = val / 127;
-    if(cc >= 70 && cc <= 73){
-      const idx = cc - 70;
-      const macroEl = [macro1, macro2, macro3, macro4][idx];
-      if(macroEl){ macroEl.value = normalized; updateMacros(); }
-     } else if(cc === 1){
-      lfoGain.gain.value = normalized * 1000;
-      updateLfoRouting();
-    } else if(cc === 7){
-      synthVol.gain.value = normalized;
-    } else if(cc >= 74 && cc <= 77){
-      const idx = cc - 74;
-      const macroEl = [macro1, macro2, macro3, macro4][idx];
-      if(macroEl){ macroEl.value = normalized; updateMacros(); }
-    }
-  }
-  // Initialize WebMIDI and attach message handlers to all inputs
-  if(navigator.requestMIDIAccess){
-    navigator.requestMIDIAccess().then((access)=>{
-      access.inputs.forEach((input)=>{
-        input.onmidimessage = handleMIDIMessage;
-      });
-    }).catch((err)=>{
-      console.warn('MIDI access failed:', err);
-    });
-  }
-})();
-</script>
-</body>
-</html>
-
-
+/* ================== Audio Core ================== */
+const Audio = (()=>{
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value=0.8; master.connect(ctx.destination);
+  const tapBus = ctx.createGain(); tapBus.gain.value = 1.0; master.connect(tapBus); // for recorder
+  const dryBus = ctx.createGain(); dryBus.gain.value=0.75; dryBus.connect(master);
+  const chorusBus = ctx.createGain(); chorusBus.gain.value=0.25;
+  const chorusDelay = ctx.createDelay(0.05);
+  const lfo = ctx.createOscillator(); const lfoGain=ctx.createGain(); lfoGain.gain.value=0.004; lfo.frequency.value=0.8; lfo.connect(lfoGain).connect(chorusDelay.delayTime);
+  chorusBus.connect(chorusDelay).connect(master); lfo.start();
+  const params = { cutoff:2200, reso:.5 };
+  function setMasterVol(v){ master.gain.value=v; }
+  function setChorusMix(v){ chorusBus.gain.value=v; }
+  function setFilterCutoff(v){ params.cutoff=v; }
+  function setFilterQ(v){ params.q=v; params.reso=v; }
+
+  function playVoice({freq=220,time=ctx.currentTime,dur=0.25,vel=0.9}){
+    const osc = ctx.createOscillator(); osc.type="sawtooth"; osc.frequency.setValueAtTime(freq,time);
+    const filt = ctx.createBiquadFilter(); filt.type="lowpass"; filt.frequency.setValueAtTime(params.cutoff,time); filt.Q.setValueAtTime(params.reso??0.5,time);
+    const env = ctx.createGain(); env.gain.setValueAtTime(0.0001,time);
+    const A=0.005,D=Math.min(.4,dur*.6),S=0.25,R=0.12;
+    env.gain.linearRampToValueAtTime(vel,time+A);
+    env.gain.linearRampToValueAtTime(vel*S,time+A+D);
+    env.gain.linearRampToValueAtTime(0.0001,time+dur+R);
+    const dryTap=ctx.createGain(); const chTap=ctx.createGain(); dryTap.gain.value=1; chTap.gain.value=1;
+    osc.connect(filt).connect(env); env.connect(dryTap).connect(dryBus); env.connect(chTap).connect(chorusBus);
+    osc.start(time); osc.stop(time+dur+0.2);
+    osc.onended=()=>{try{osc.disconnect();filt.disconnect();env.disconnect();dryTap.disconnect();chTap.disconnect();}catch{}}
+  }
+
+  /* Drums */
+  function kick(time=ctx.currentTime, vel=1.0){
+    const osc=ctx.createOscillator(), env=ctx.createGain();
+    osc.type="sine"; osc.frequency.setValueAtTime(140,time); osc.frequency.exponentialRampToValueAtTime(40,time+0.12);
+    env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.002); env.gain.exponentialRampToValueAtTime(0.0001,time+0.25);
+    osc.connect(env).connect(dryBus); osc.start(time); osc.stop(time+0.26);
+    osc.onended=()=>{try{osc.disconnect();env.disconnect();}catch{}}
+  }
+  function snare(time=ctx.currentTime, vel=0.8){
+    const size=2*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
+    for(let i=0;i<size;i++) data[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource(); src.buffer=buf; const bp=ctx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=1800; bp.Q.value=0.6;
+    const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.002); env.gain.exponentialRampToValueAtTime(0.0001,time+0.18);
+    src.connect(bp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.2);
+    src.onended=()=>{try{src.disconnect();bp.disconnect();env.disconnect();}catch{}}
+  }
+  function hat(time=ctx.currentTime, vel=0.6){
+    const size=1*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
+    for(let i=0;i<size;i++) data[i]=(Math.random()*2-1)*0.7;
+    const src=ctx.createBufferSource(); src.buffer=buf; const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=7000;
+    const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time); env.gain.exponentialRampToValueAtTime(vel,time+0.001); env.gain.exponentialRampToValueAtTime(0.0001,time+0.06);
+    src.connect(hp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.08);
+    src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}}
+  }
+  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ snare(time+i*0.01, vel*0.55); } }
+
+  /* Sampler (pads) */
+  function createSampler(){
+    const slots = new Array(16).fill(null);
+    async
