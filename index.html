@@ -7,40 +7,14 @@
 <style>
   :root{
     --bg:#0b0f14; --panel:#121926; --panel-2:#0f1623; --text:#e7eef7; --muted:#8aa0b7;
-    --accent:#4cc9f0; --red:#ff3b30; --grid:#1c2535;
-    --splitter:#1a263b;
+    --accent:#4cc9f0; --red:#ff3b30; --grid:#1c2535; --splitter:#1a263b;
+    --uiScale: 1; /* скала за диагоналния ресайз */
   }
   *{box-sizing:border-box}
   body{margin:0;background:linear-gradient(160deg,#0b0f14,#0a0d12);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
   header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.03);backdrop-filter: blur(6px);position:sticky;top:0;z-index:6;border-bottom:1px solid #101624}
   h1{font-size:16px;margin:0;color:var(--text);opacity:.95;font-weight:700}
   .badge{font-size:11px;padding:3px 8px;border-radius:999px;background:linear-gradient(180deg,#122338,#0e1a2b);border:1px solid #1f2a3e;color:var(--muted)}
-
-  /* === 2-панелен layout + сплитер === */
-  .layout{ display:grid; grid-template-columns: var(--left,1.15fr) 6px var(--right,.85fr); gap:14px; padding:14px; }
-  #splitter{
-    background:linear-gradient(180deg,#0f1624,#0e1522);
-    border:1px solid var(--splitter);
-    border-radius:10px;
-    cursor:col-resize;
-    position:relative;
-  }
-  #splitter:before{
-    content:""; position:absolute; left:50%; top:12px; bottom:12px; width:2px; transform:translateX(-50%);
-    background:linear-gradient(180deg,#23324a,#1a253b);
-    border-radius:2px; opacity:.7;
-  }
-
-  @media (max-width: 980px){
-    .layout{ grid-template-columns:1fr; gap:12px; padding:12px; }
-    #splitter{ display:none; }
-  }
-
-  .panel{background:var(--panel);border:1px solid #162033;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden}
-  .panel h2{font-size:13px;margin:0;padding:10px 12px;border-bottom:1px solid #17253a;background:linear-gradient(180deg,#121b2a,#0f1827);color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
-  .row{display:flex;gap:10px;flex-wrap:wrap;padding:12px}
-  .control{display:flex;flex-direction:column;gap:6px;min-width:120px}
-  .control label{font-size:12px;color:var(--muted)}
   .btn{appearance:none;border:1px solid #1c2a40;background:linear-gradient(180deg,#152032,#0f1827);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;transition:transform .05s ease,box-shadow .2s}
   .btn:hover{box-shadow:0 4px 16px rgba(76,201,240,.12)}
   .btn:active{transform:translateY(1px)}
@@ -48,12 +22,42 @@
   .btn.danger{border-color:#4b1f27;background:linear-gradient(180deg,#3a1217,#2a0f13);color:#ffd7db}
   input, select{background:#0c1320;border:1px solid #1b2942;color:var(--text);padding:8px;border-radius:10px;outline:none}
   select{min-width:120px}
+  .control{display:flex;flex-direction:column;gap:6px;min-width:120px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;padding:12px}
+  .panel{background:var(--panel);border:1px solid #162033;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden}
+  .panel h2{font-size:13px;margin:0;padding:10px 12px;border-bottom:1px solid #17253a;background:linear-gradient(180deg,#121b2a,#0f1827);color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
   .kbd{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1726;border:1px solid #1c2a42;border-radius:6px;padding:2px 6px;color:#a9c0db}
+  .footer{padding:10px 14px;color:#7c8ea6;border-top:1px solid #17253a;font-size:12px;background:linear-gradient(180deg,#101724,#0e1623)}
 
-  /* step timeline */
+  /* === Външен wrapper със скейл (за диагонално смаляване) === */
+  .scale-wrap{
+    transform: scale(var(--uiScale));
+    transform-origin: top left;
+    transition: transform .08s ease-out;
+  }
+
+  /* === 2-панелен layout + сплитер === */
+  .layout{ display:grid; grid-template-columns: var(--left,1.15fr) 6px var(--right,.85fr); gap:14px; padding:14px; }
+  #splitter{
+    background:linear-gradient(180deg,#0f1624,#0e1522); border:1px solid var(--splitter); border-radius:10px;
+    cursor:col-resize; position:relative;
+  }
+  #splitter:before{
+    content:""; position:absolute; left:50%; top:12px; bottom:12px; width:2px; transform:translateX(-50%);
+    background:linear-gradient(180deg,#23324a,#1a253b); border-radius:2px; opacity:.7;
+  }
+
+  @media (max-width: 980px){
+    .layout{ grid-template-columns:1fr; gap:12px; padding:12px; }
+    #splitter{ display:none; }
+  }
+
+  /* ==== Timeline/Sequencer ==== */
   .timeline{padding:12px;display:grid;gap:10px}
+  .timeline-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 12px 4px}
+  .timeline-toolbar .badge{border-radius:8px}
   .barLabels{display:flex;justify-content:space-between;font-size:11px;color:#7e91a9;padding:0 4px}
-  .steps{display:grid;grid-template-columns: repeat(8, 1fr);gap:8px;position:relative;background:var(--panel-2);padding:10px;border-radius:12px;border:1px solid #1a263b}
+  .steps{display:grid;gap:8px;position:relative;background:var(--panel-2);padding:10px;border-radius:12px;border:1px solid #1a263b}
   .step{aspect-ratio:1.6/1;border-radius:10px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer;user-select:none;transition:all .15s}
   .step.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
   .playhead{position:absolute;top:8px;bottom:8px;width:3px;background:var(--red);border-radius:2px;box-shadow:0 0 6px rgba(255,59,48,.8);transform:translateX(-1px);pointer-events:none}
@@ -61,12 +65,12 @@
   .laneTitle{font-size:12px;color:#96a8c0;margin-top:2px}
   .lane{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
   .lane .name{color:#9fb3cd;font-size:12px;text-align:right;padding-right:6px}
-  .lane .cells{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+  .lane .cells{display:grid;gap:8px}
   .cell{aspect-ratio:1.6/1;border-radius:8px;border:1px solid #23324c;background:linear-gradient(180deg,#0f1827,#0b1320);display:flex;align-items:center;justify-content:center;color:#8aa0b7;cursor:pointer}
   .cell.on{border-color:#2f8ac9;background:linear-gradient(180deg,#123152,#0e1c32);color:#d8eeff;box-shadow:inset 0 0 0 1px #2f8ac9}
-  .noteRow{display:grid;grid-template-columns:120px repeat(8,1fr);gap:8px}
+  .noteRow{display:grid;gap:8px;grid-template-columns:120px 1fr}
   .noteRow .name{color:#9fb3cd;text-align:right;padding-right:6px}
-  .noteRow select{width:100%}
+  .noteRow .selects{display:grid;gap:8px}
 
   /* Arranger (multi-lane) */
   .arranger{padding:12px;border-top:1px solid #17253a;background:linear-gradient(0deg,#0e1624,#0f1a2a)}
@@ -86,70 +90,59 @@
   .laneLabel{position:absolute;left:6px;font-size:10px;color:#97a8c0;opacity:.9}
   .laneGrid{position:absolute;left:0;right:0;height:18px;border-bottom:1px solid #1b2a40}
   .inline-help{font-size:12px;color:#8aa0b7;padding:0 12px 10px}
-  .footer{padding:10px 14px;color:#7c8ea6;border-top:1px solid #17253a;font-size:12px;background:linear-gradient(180deg,#101724,#0e1623)}
 
-  /* ==== Responsive tweaks (оригинал + подобрения) ==== */
-  .timeline{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  #drumGrid{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .steps, #bassCells, #wtCells{ min-width: 560px; }
-  #drumGrid{ min-width: 960px; }
-  .pads, .pad-tools{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .pads{ min-width: 360px; }
+  /* ==== Drum / Pads ==== */
+  #drumGrid{ display:grid;grid-template-columns: 100px repeat(16, 1fr);gap:6px;padding:8px;background:var(--panel-2);border-radius:12px;border:1px solid #1a263b; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .pads{ display:grid;grid-template-columns: repeat(4, 1fr);gap:10px;padding:10px; min-width:360px; }
+  .pad-tools{ display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px 10px }
+
+  /* ==== Responsive (вкл. iOS твърди overrides) ==== */
   header{ flex-wrap: wrap; }
   .badge{ margin-top: 4px; }
   .row{ row-gap: 10px; }
   .control{ flex: 1 1 220px; min-width: 160px; }
 
-  @media (max-width: 980px){
+  @media (max-width:980px){
     .panel h2{ font-size:12px; padding:8px 10px; }
     .arr-wrap{ height: 180px; }
-    /* Dynamic pages: скриване/показване според data-page */
+
     body[data-page="timeline"] .right-panel{ display:none !important; }
     body[data-page="timeline"] .left-panel .arranger{ display:none !important; }
     body[data-page="arranger"] .right-panel{ display:none !important; }
     body[data-page="arranger"] .left-panel > *:not(.arranger){ display:none !important; }
     body[data-page="drums"] .left-panel{ display:none !important; }
     body[data-page="drums"] .right-panel{ display:block !important; }
+
+    .steps .step, .lane .cells .cell{ height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
+    .lane{ grid-template-columns:72px 1fr !important; }
+    .noteRow{ grid-template-columns:72px 1fr !important; }
+    #drumGrid > div{ min-height:44px !important; }
+    .pads{ grid-template-columns: repeat(4, 1fr) !important; gap:10px !important; }
+  }
+  @media (max-width:450px){
+    .pads{ grid-template-columns: repeat(2, 1fr) !important; }
+    .steps .step, .lane .cells .cell{ height:38px !important; min-height:38px !important; }
   }
 
-  @media (max-width: 450px){
-    .steps, #bassCells, #wtCells{ min-width: 620px; }
-    #drumGrid{ min-width: 1040px; }
-    h1{ font-size:14px; }
-  }
-
-  /* Навигация за мобилен (горна лента + долна) */
+  /* Навигация (мобилен) */
   .top-tabs{ display:none; gap:8px; padding:8px 12px; border-bottom:1px solid #152238; background:rgba(10,15,22,.6); position:sticky; top:56px; z-index:7; }
   .top-tabs button{ appearance:none; border:1px solid #1c2a40; background:linear-gradient(180deg,#152032,#0f1827); color:#9fb3cd; border-radius:10px; padding:6px 10px; font-size:12px; }
   .top-tabs button.active{ color:#e7eef7; background:#132033; }
   @media (max-width:980px){ .top-tabs{ display:flex; } header{ position:sticky; top:0; z-index:8; } }
-
   .mobile-nav{ position:fixed; left:0; right:0; bottom:0; height:56px; background:rgba(10,15,22,.96); border-top:1px solid #152238; display:none; align-items:center; justify-content:space-around; padding-bottom: env(safe-area-inset-bottom); z-index:999; }
   .mobile-nav button{ appearance:none; background:none; border:none; color:#9fb3cd; font-size:12px; padding:6px 8px; border-radius:10px; }
   .mobile-nav button.active{ color:#e7eef7; background:#132033; }
   @media (max-width: 980px){ .mobile-nav{ display:flex; } body{ padding-bottom: calc(56px + env(safe-area-inset-bottom)); } }
 
-  /* Видимост и размери на гридове на малки екрани (твърди overrides за iOS) */
-  :root{ --stepH: 42px; }
-  @media (max-width:980px){
-    .panel{ overflow: visible !important; }
-    .timeline{ overflow: visible !important; }
-    .steps{ display:grid !important; grid-template-columns: repeat(8, minmax(0,1fr)) !important; gap:8px !important; padding:8px !important; min-width:auto !important; }
-    .step{ display:flex !important; align-items:center !important; justify-content:center !important; height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
-    .lane{ grid-template-columns:72px 1fr !important; }
-    .lane .cells{ display:grid !important; grid-template-columns: repeat(8, minmax(0,1fr)) !important; gap:8px !important; min-width:auto !important; }
-    .lane .cells .cell{ display:flex !important; align-items:center !important; justify-content:center !important; height:44px !important; min-height:44px !important; aspect-ratio:auto !important; }
-    .noteRow{ grid-template-columns:72px repeat(8, minmax(0,1fr)) !important; gap:8px !important; min-width:auto !important; }
-    .noteRow select{ min-width:0 !important; width:100% !important; }
-    #drumGrid{ grid-template-columns:64px repeat(16, minmax(0,1fr)) !important; gap:6px !important; min-width:auto !important; }
-    #drumGrid > div{ min-height:44px !important; }
-    .pads{ grid-template-columns: repeat(4, 1fr) !important; gap:10px !important; }
-    .pad{ display:flex !important; align-items:center !important; justify-content:center !important; height:84px !important; min-height:84px !important; aspect-ratio:auto !important; }
-  }
-  @media (max-width:420px){
-    .pads{ grid-template-columns: repeat(2, 1fr) !important; }
-    #drumGrid{ grid-template-columns:56px repeat(16, minmax(0,1fr)) !important; gap:4px !important; }
-    .steps .step, .lane .cells .cell{ height:38px !important; min-height:38px !important; }
+  /* Диагонален ресайзер */
+  #diagSizer{
+    position: fixed; right: 8px; bottom: 64px; /* над мобилната навигация */
+    width: 18px; height: 18px; cursor: nwse-resize;
+    background:
+      linear-gradient(135deg, transparent 50%, #2b84c8 50%) left/100% 100% no-repeat,
+      linear-gradient(180deg,#0e1726,#0b1422);
+    border:1px solid #254064; border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,.25);
+    z-index:1000;
   }
 </style>
 </head>
@@ -160,7 +153,7 @@
   <span class="badge">Recorder: WAV / WebM</span>
 </header>
 
-<!-- Горни табове (мобилен/таблет) -->
+<!-- Горни табове -->
 <div class="top-tabs" role="navigation" aria-label="Page tabs (mobile)">
   <button data-page="studio" id="tabStudio">Studio</button>
   <button data-page="timeline" id="tabTimeline">Timeline</button>
@@ -168,174 +161,187 @@
   <button data-page="drums" id="tabDrums">Drums</button>
 </div>
 
-<!-- Основен layout: ляв панел | сплитер | десен панел -->
-<main class="layout" id="layout">
-  <!-- Ляв панел -->
-  <section class="panel left-panel">
-    <h2>Timeline &amp; Transport</h2>
+<!-- Външен скейл wrapper за диагонално смаляване -->
+<div class="scale-wrap" id="scaleWrap">
+  <main class="layout" id="layout">
+    <!-- Ляв панел -->
+    <section class="panel left-panel">
+      <h2>Timeline &amp; Transport</h2>
 
-    <div class="row">
-      <button id="startBtn" class="btn primary">Start</button>
-      <button id="stopBtn" class="btn danger">Stop</button>
+      <div class="row">
+        <button id="startBtn" class="btn primary">Start</button>
+        <button id="stopBtn" class="btn danger">Stop</button>
 
-      <div class="control">
-        <label for="bpm">BPM</label>
-        <input type="range" id="bpm" min="60" max="160" step="1" value="120" />
-        <div><span id="bpmVal">120</span> bpm</div>
-      </div>
+        <div class="control">
+          <label for="bpm">BPM</label>
+          <input type="range" id="bpm" min="60" max="200" step="1" value="120" />
+          <div><span id="bpmVal">120</span> bpm</div>
+        </div>
 
-      <div class="control">
-        <label>Arm TL Rec</label>
-        <div class="switch">
-          <input type="checkbox" id="armTl" />
-          <label for="armTl">Record to Arranger</label>
+        <div class="control">
+          <label>Arm TL Rec</label>
+          <div class="switch">
+            <input type="checkbox" id="armTl" />
+            <label for="armTl">Record to Arranger</label>
+          </div>
+        </div>
+
+        <!-- Recorder controls -->
+        <div class="control">
+          <label>Запис и изтегляне</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="recBtn" class="btn">Rec</button>
+            <button id="stopRecBtn" class="btn danger">Stop Rec</button>
+            <button id="dlWavBtn" class="btn">Download WAV</button>
+            <button id="dlWebmBtn" class="btn" style="display:none">Download WebM</button>
+          </div>
+          <small id="recStatus" style="color:#8aa0b7">Idle</small>
+        </div>
+
+        <!-- Save/Reset -->
+        <div class="control">
+          <label>Сесия</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="saveSettings" class="btn">💾 Запази настройки</button>
+            <button id="resetSettings" class="btn danger">🗑️ Изчисти настройки</button>
+          </div>
+          <small style="color:#8aa0b7">Авто-запазване: Включено</small>
         </div>
       </div>
 
-      <!-- Recorder controls -->
-      <div class="control">
-        <label>Запис и изтегляне</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="recBtn" class="btn">Rec</button>
-          <button id="stopRecBtn" class="btn danger">Stop Rec</button>
-          <button id="dlWavBtn" class="btn">Download WAV</button>
-          <button id="dlWebmBtn" class="btn" style="display:none">Download WebM</button>
+      <div class="timeline">
+        <!-- Toolbar за стъпките -->
+        <div class="timeline-toolbar">
+          <span class="badge">Steps: <b id="stepCountLbl">8</b></span>
+          <button id="stepMinus" class="btn">–</button>
+          <button id="stepPlus" class="btn">+</button>
+          <small style="color:#8aa0b7">мин 4 / макс 32</small>
         </div>
-        <small id="recStatus" style="color:#8aa0b7">Idle</small>
-      </div>
 
-      <!-- NEW: Save/Reset -->
-      <div class="control">
-        <label>Сесия</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="saveSettings" class="btn">💾 Запази настройки</button>
-          <button id="resetSettings" class="btn danger">🗑️ Изчисти настройки</button>
+        <div class="barLabels" id="barLabels"></div>
+
+        <div class="steps" id="steps">
+          <div class="playhead" id="playhead"></div>
         </div>
-        <small style="color:#8aa0b7">Авто-запазване: Включено</small>
-      </div>
-    </div>
 
-    <div class="timeline">
-      <div class="barLabels"><span>1</span><span>5</span><span>9</span><span>13</span></div>
-      <div class="steps" id="steps">
-        <div class="playhead" id="playhead"></div>
-        <div class="gridline" style="left:12.5%"></div>
-        <div class="gridline" style="left:25%"></div>
-        <div class="gridline" style="left:37.5%"></div>
-        <div class="gridline" style="left:50%"></div>
-        <div class="gridline" style="left:62.5%"></div>
-        <div class="gridline" style="left:75%"></div>
-        <div class="gridline" style="left:87.5%"></div>
+        <!-- Chords lane -->
+        <div class="noteRow" id="chordsRow">
+          <div class="name">Chords</div>
+          <div class="selects" id="chordsSelects"></div>
+        </div>
+
+        <!-- Bass 303 lane -->
+        <div class="laneTitle">Bass 303</div>
+        <div class="lane">
+          <div class="name">Pattern</div>
+          <div class="cells" id="bassCells"></div>
+        </div>
+        <div class="noteRow" id="bassNotesRow">
+          <div class="name">Notes</div>
+          <div class="selects" id="bassNotesSelects"></div>
+        </div>
+
+        <!-- Wavetable lane -->
+        <div class="laneTitle">Wavetable</div>
+        <div class="lane">
+          <div class="name">Pattern</div>
+          <div class="cells" id="wtCells"></div>
+        </div>
+        <div class="noteRow" id="wtNotesRow">
+          <div class="name">Notes</div>
+          <div class="selects" id="wtNotesSelects"></div>
+        </div>
       </div>
 
-      <!-- Chords for main lane -->
-      <div class="noteRow" id="chordsRow"><div class="name">Chords</div></div>
+      <!-- Instrument parameters -->
+      <div class="row">
+        <div class="control">
+          <label>303 Volume</label>
+          <input type="range" id="b303Vol" min="0" max="1" step="0.01" value="0.9" />
+        </div>
+        <div class="control">
+          <label>303 Reso</label>
+          <input type="range" id="b303Reso" min="0.1" max="18" step="0.1" value="8" />
+        </div>
+        <div class="control">
+          <label>303 Slide</label>
+          <input type="range" id="b303Slide" min="0" max="0.5" step="0.005" value="0.06" />
+        </div>
+        <div class="control">
+          <label>303 Accent</label>
+          <input type="range" id="b303Accent" min="0" max="1" step="0.01" value="0.35" />
+        </div>
+        <div class="control">
+          <label>WT Volume</label>
+          <input type="range" id="wtVol" min="0" max="1" step="0.01" value="0.8" />
+        </div>
+        <div class="control">
+          <label>WT Morph</label>
+          <input type="range" id="wtMorph" min="0" max="1" step="0.01" value="0.4" />
+        </div>
+        <div class="control">
+          <label>WT Hold (s)</label>
+          <input type="range" id="wtHold" min="0.05" max="0.7" step="0.01" value="0.25" />
+        </div>
+      </div>
 
-      <!-- Bass 303 lane -->
-      <div class="laneTitle">Bass 303</div>
-      <div class="lane">
-        <div class="name">Pattern</div>
-        <div class="cells" id="bassCells"></div>
+      <!-- Arranger -->
+      <div class="arranger">
+        <div class="arr-toolbar">
+          <button id="arrPlay" class="btn primary">▶ TL Play</button>
+          <button id="arrStop" class="btn danger">■ TL Stop</button>
+          <span class="len">Length: <b id="lenLabel">00:30</b> (drag handle)</span>
+        </div>
+        <div class="arr-wrap" id="arrWrap">
+          <div class="arr-axis" id="arrAxis"></div>
+          <div class="arr-track" id="arrTrack"></div>
+          <div class="arr-playhead" id="arrPlayhead"></div>
+          <div class="arr-limit" id="arrLimit" title="Drag to set length"></div>
+        </div>
+        <div class="inline-help">Двоен клик върху клип = изтриване. Плъзгане = местене. TL Play/Stop управляват аранжера. Лейнове: 1) Chords/Notes, 2) Bass303, 3) Wavetable, 4) Drums, 5) Pads.</div>
       </div>
-      <div class="noteRow" id="bassNotesRow"><div class="name">Notes</div></div>
 
-      <!-- Wavetable lane -->
-      <div class="laneTitle">Wavetable</div>
-      <div class="lane">
-        <div class="name">Pattern</div>
-        <div class="cells" id="wtCells"></div>
-      </div>
-      <div class="noteRow" id="wtNotesRow"><div class="name">Notes</div></div>
-    </div>
+      <div class="footer">Всички инструменти записват в отделни лейнове при включен <span class="kbd">Arm TL Rec</span>. Записът работи с MediaRecorder (ако е наличен) или чрез вътрешен WAV записвач.</div>
+    </section>
 
-    <!-- Instrument parameters -->
-    <div class="row">
-      <div class="control">
-        <label>303 Volume</label>
-        <input type="range" id="b303Vol" min="0" max="1" step="0.01" value="0.9" />
-      </div>
-      <div class="control">
-        <label>303 Reso</label>
-        <input type="range" id="b303Reso" min="0.1" max="18" step="0.1" value="8" />
-      </div>
-      <div class="control">
-        <label>303 Slide</label>
-        <input type="range" id="b303Slide" min="0" max="0.25" step="0.005" value="0.06" />
-      </div>
-      <div class="control">
-        <label>303 Accent</label>
-        <input type="range" id="b303Accent" min="0" max="1" step="0.01" value="0.35" />
-      </div>
-      <div class="control">
-        <label>WT Volume</label>
-        <input type="range" id="wtVol" min="0" max="1" step="0.01" value="0.8" />
-      </div>
-      <div class="control">
-        <label>WT Morph</label>
-        <input type="range" id="wtMorph" min="0" max="1" step="0.01" value="0.4" />
-      </div>
-      <div class="control">
-        <label>WT Hold (s)</label>
-        <input type="range" id="wtHold" min="0.05" max="0.7" step="0.01" value="0.25" />
-      </div>
-    </div>
+    <!-- СПЛИТЕР -->
+    <div id="splitter" title="Плъзни за промяна на размера"></div>
 
-    <!-- Arranger -->
-    <div class="arranger">
-      <div class="arr-toolbar">
-        <button id="arrPlay" class="btn primary">▶ TL Play</button>
-        <button id="arrStop" class="btn danger">■ TL Stop</button>
-        <span class="len">Length: <b id="lenLabel">00:30</b> (drag handle)</span>
+    <!-- Десен панел -->
+    <section class="panel right-panel">
+      <h2>Drum Machine &amp; MPC</h2>
+      <div class="row">
+        <div class="control">
+          <label>Master Volume</label>
+          <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.8" />
+        </div>
+        <div class="control">
+          <label>Chorus Amount</label>
+          <input type="range" id="chorusMix" min="0" max="0.8" step="0.01" value="0.25" />
+        </div>
+        <div class="control">
+          <label>Cutoff</label>
+          <input type="range" id="cutoff" min="200" max="8000" step="1" value="2200" />
+        </div>
+        <div class="control">
+          <label>Resonance (Q)</label>
+          <input type="range" id="reso" min="0.1" max="18" step="0.1" value="0.5" />
+        </div>
       </div>
-      <div class="arr-wrap" id="arrWrap">
-        <div class="arr-axis" id="arrAxis"></div>
-        <div class="arr-track" id="arrTrack"></div>
-        <div class="arr-playhead" id="arrPlayhead"></div>
-        <div class="arr-limit" id="arrLimit" title="Drag to set length"></div>
+
+      <div class="row">
+        <div class="control"><label>Kick/Snare/Hat/Clap</label><small style="color:#8aa0b7">16-step решетка</small></div>
       </div>
-      <div class="inline-help">Двоен клик върху клип = изтриване. Плъзгане = местене. TL Play/Stop управляват аранжера. Лейнове: 1) Chords/Notes, 2) Bass303, 3) Wavetable, 4) Drums, 5) Pads.</div>
-    </div>
 
-    <div class="footer">Всички инструменти записват в отделни лейнове при включен <span class="kbd">Arm TL Rec</span>. Записът работи с MediaRecorder (ако е наличен) или чрез вътрешен WAV записвач.</div>
-  </section>
+      <div class="drum-grid" id="drumGrid"></div>
 
-  <!-- СПЛИТЕР -->
-  <div id="splitter" title="Плъзни за промяна на размера"></div>
-
-  <!-- Десен панел -->
-  <section class="panel right-panel">
-    <h2>Drum Machine &amp; MPC</h2>
-    <div class="row">
-      <div class="control">
-        <label>Master Volume</label>
-        <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.8" />
-      </div>
-      <div class="control">
-        <label>Chorus Amount</label>
-        <input type="range" id="chorusMix" min="0" max="0.8" step="0.01" value="0.25" />
-      </div>
-      <div class="control">
-        <label>Cutoff</label>
-        <input type="range" id="cutoff" min="200" max="8000" step="1" value="2200" />
-      </div>
-      <div class="control">
-        <label>Resonance (Q)</label>
-        <input type="range" id="reso" min="0.1" max="18" step="0.1" value="0.5" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="control"><label>Kick/Snare/Hat/Clap</label><small style="color:#8aa0b7">16-step решетка</small></div>
-    </div>
-
-    <div class="drum-grid" id="drumGrid" style="display:grid;grid-template-columns: 100px repeat(16, 1fr);gap:6px;padding:8px;background:var(--panel-2);border-radius:12px;border:1px solid #1a263b"></div>
-
-    <h2>MPC Sampler Pads</h2>
-    <div class="pads" id="mpcPads" style="display:grid;grid-template-columns: repeat(4, 1fr);gap:10px;padding:10px"></div>
-    <div class="pad-tools" id="padTools" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px 10px"></div>
-    <div class="footer">Pads и Drums също записват в лейновете си при Arm TL Rec.</div>
-  </section>
-</main>
+      <h2>MPC Sampler Pads</h2>
+      <div class="pads" id="mpcPads"></div>
+      <div class="pad-tools" id="padTools"></div>
+      <div class="footer">Pads и Drums също записват в лейновете си при Arm TL Rec.</div>
+    </section>
+  </main>
+</div>
 
 <!-- Долна мобилна навигация -->
 <div class="mobile-nav" role="navigation" aria-label="Mobile navigation">
@@ -344,6 +350,9 @@
   <button data-page="arranger" id="navArranger">Arranger</button>
   <button data-page="drums" id="navDrums">Drums</button>
 </div>
+
+<!-- Диагонален ресайзер -->
+<div id="diagSizer" title="Плъзни по диагонал за мащабиране"></div>
 
 <script>
 /* ================== Audio Core ================== */
@@ -492,148 +501,236 @@ const Theory = (()=>{
   return { freq, chordToNotes, pitchChoices };
 })();
 
-/* ============== UI (steps, drums, pads, 303, WT) ============== */
+/* ============== UI (динамичен брой стъпки, drums, pads) ============== */
 const UI = (()=>{
-  const stepsEl = document.getElementById('steps');
-  const playheadEl = document.getElementById('playhead');
-  const chordsRow = document.getElementById('chordsRow');
-  const armTl = document.getElementById('armTl');
-  const bpmEl = document.getElementById('bpm'); const bpmVal=document.getElementById('bpmVal'); bpmEl.addEventListener('input',()=> bpmVal.textContent=bpmEl.value);
+  const el = {
+    steps: document.getElementById('steps'),
+    playhead: document.getElementById('playhead'),
+    barLabels: document.getElementById('barLabels'),
+    chordsSelects: document.getElementById('chordsSelects'),
+    bassCells: document.getElementById('bassCells'),
+    bassNotesSelects: document.getElementById('bassNotesSelects'),
+    wtCells: document.getElementById('wtCells'),
+    wtNotesSelects: document.getElementById('wtNotesSelects'),
+    stepLbl: document.getElementById('stepCountLbl'),
+    stepMinus: document.getElementById('stepMinus'),
+    stepPlus: document.getElementById('stepPlus'),
+    bpm: document.getElementById('bpm'), bpmVal: document.getElementById('bpmVal'),
+    arm: document.getElementById('armTl'),
+    drumGrid: document.getElementById('drumGrid'),
+  };
 
-  /* main 8 steps */
-  const steps = Array.from({length:8},(_,i)=>{
-    const d=document.createElement('div'); d.className='step'; d.textContent=i+1;
-    d.addEventListener('click', ()=> { d.classList.toggle('on'); Settings.queueSave(); });
-    stepsEl.appendChild(d); return d;
-  });
-
-  /* chord selects */
   const chordOptions=["C","Cm","Cmaj7","C7","C add9","C sus2","C sus4","D","Dm","Dmaj7","D7","D add9","D sus2","D sus4","E","Em","Emaj7","E7","E add9","E sus2","E sus4","F","Fm","Fmaj7","F7","F add9","F sus2","F sus4","G","Gm","Gmaj7","G7","G add9","G sus2","G sus4","A","Am","Amaj7","A7","A add9","A sus2","A sus4","B","Bm","Bmaj7","B7","B add9","B sus2","B sus4"];
-  const chords = Array.from({length:8},()=> "Am");
-  for(let i=0;i<8;i++){
-    const s=document.createElement('select'); chordOptions.forEach(opt=>{ const o=document.createElement('option'); o.value=o.textContent=opt; s.appendChild(o); });
-    s.value=chords[i]; s.addEventListener('change', ()=> { chords[i]=s.value; Settings.queueSave(); });
-    chordsRow.appendChild(s);
-  }
 
-  /* Bass 303 lane */
-  const bassCells = document.getElementById('bassCells');
-  const bassNotesRow = document.getElementById('bassNotesRow');
-  const bassSteps = Array.from({length:8},(_,i)=>{
-    const c=document.createElement('div'); c.className='cell'; c.textContent=i+1; c.addEventListener('click',()=> { c.classList.toggle('on'); Settings.queueSave(); }); bassCells.appendChild(c); return c;
-  });
-  const bassNotes = Array.from({length:8},(_,i)=>{
-    const s=document.createElement('select');
-    Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
-    s.value = ["C2","E2","G2","A2","C3","E3","G2","A2"][i%8];
-    s.addEventListener('change', ()=> Settings.queueSave());
-    bassNotesRow.appendChild(s); return s;
-  });
-
-  /* Wavetable lane */
-  const wtCells = document.getElementById('wtCells');
-  const wtNotesRow = document.getElementById('wtNotesRow');
-  const wtSteps = Array.from({length:8},(_,i)=>{
-    const c=document.createElement('div'); c.className='cell'; c.textContent=i+1; c.addEventListener('click',()=> { c.classList.toggle('on'); Settings.queueSave(); }); wtCells.appendChild(c); return c;
-  });
-  const wtNotes = Array.from({length:8},(_,i)=>{
-    const s=document.createElement('select');
-    Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
-    s.value = ["C3","D3","E3","G3","A3","B3","A3","G3"][i%8];
-    s.addEventListener('change', ()=> Settings.queueSave());
-    wtNotesRow.appendChild(s); return s;
-  });
-
-  /* Drums grid 4x16 */
-  const drumGrid = document.getElementById('drumGrid');
+  let stepCount = 8;
+  let steps=[], chords=[], bassSteps=[], bassNotes=[], wtSteps=[], wtNotes=[];
   const drumNames=["Kick","Snare","Hat","Clap"];
   const drumPattern={grid:Array.from({length:4},()=> Array(16).fill(false))};
-  for(let r=0;r<4;r++){
-    const name=document.createElement('div'); name.textContent=drumNames[r]; name.style.display='flex'; name.style.alignItems='center'; name.style.justifyContent='flex-end'; name.style.paddingRight='8px'; name.style.color='#9fadc1'; name.style.fontSize='12px'; drumGrid.appendChild(name);
-    for(let c=0;c<16;c++){
-      const cell=document.createElement('div'); cell.style.aspectRatio='1/1'; cell.style.border='1px solid #24324a'; cell.style.borderRadius='8px'; cell.style.background='linear-gradient(180deg,#0e1726,#0b1422)'; cell.style.cursor='pointer';
-      cell.addEventListener('click',()=>{ cell.classList.toggle('on'); cell.style.background = cell.classList.contains('on') ? 'linear-gradient(180deg,#183456,#14253f)' : 'linear-gradient(180deg,#0e1726,#0b1422)'; cell.style.borderColor = cell.classList.contains('on')? '#2b84c8' : '#24324a'; drumPattern.grid[r][c]=cell.classList.contains('on'); Settings.queueSave(); });
-      drumGrid.appendChild(cell);
+
+  /* build helpers */
+  function drawBarLabels(){
+    el.barLabels.innerHTML='';
+    const span = Math.max(4, stepCount);
+    const container = document.createDocumentFragment();
+    const marks = Math.ceil(stepCount/4);
+    for(let i=0;i<=marks;i++){
+      const s=document.createElement('span'); s.textContent = i*4+1 <= stepCount ? (i*4+1) : '';
+      container.appendChild(s);
+    }
+    el.barLabels.appendChild(container);
+  }
+  function gridCols(n, target){
+    target.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`;
+  }
+
+  function rebuild(mainState){
+    // preserve старото състояние, ако има
+    const old = {
+      steps: steps.map(d=> d.classList.contains('on')),
+      chords: chords.slice(),
+      bassSteps: bassSteps.map(c=> c.classList.contains('on')),
+      bassNotes: bassNotes.map(s=> s.value),
+      wtSteps: wtSteps.map(c=> c.classList.contains('on')),
+      wtNotes: wtNotes.map(s=> s.value),
+      stepCount
+    };
+    if(mainState && typeof mainState.stepCount==='number') stepCount = Math.max(4, Math.min(32, mainState.stepCount));
+
+    // Steps
+    el.steps.querySelectorAll('.step').forEach(n=> n.remove());
+    steps = Array.from({length:stepCount},(_,i)=>{
+      const d=document.createElement('div'); d.className='step'; d.textContent=i+1;
+      d.addEventListener('click', ()=>{ d.classList.toggle('on'); Settings.queueSave(); });
+      el.steps.appendChild(d); return d;
+    });
+    gridCols(stepCount, el.steps);
+    // Playhead re-append at front
+    el.steps.prepend(el.playhead);
+
+    // Chords
+    el.chordsSelects.innerHTML='';
+    chords = Array.from({length:stepCount},(_,i)=> (old.chords[i] ?? "Am"));
+    for(let i=0;i<stepCount;i++){
+      const s=document.createElement('select');
+      chordOptions.forEach(opt=>{ const o=document.createElement('option'); o.value=o.textContent=opt; s.appendChild(o); });
+      s.value=chords[i];
+      s.addEventListener('change', ()=>{ chords[i]=s.value; Settings.queueSave(); });
+      el.chordsSelects.appendChild(s);
+    }
+    gridCols(stepCount, el.chordsSelects.parentElement); // selects wrapper fills 1fr; (row uses 120px + auto)
+
+    // Bass 303
+    el.bassCells.innerHTML=''; el.bassNotesSelects.innerHTML='';
+    bassSteps = Array.from({length:stepCount},(_,i)=>{
+      const c=document.createElement('div'); c.className='cell'; c.textContent=i+1;
+      c.addEventListener('click', ()=>{ c.classList.toggle('on'); Settings.queueSave(); });
+      el.bassCells.appendChild(c); return c;
+    });
+    gridCols(stepCount, el.bassCells);
+    bassNotes = Array.from({length:stepCount},(_,i)=>{
+      const s=document.createElement('select');
+      Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
+      s.value = old.bassNotes[i] ?? ["C2","E2","G2","A2","C3","E3","G2","A2"][i%8];
+      s.addEventListener('change', ()=> Settings.queueSave());
+      el.bassNotesSelects.appendChild(s); return s;
+    });
+    gridCols(stepCount, el.bassNotesSelects);
+
+    // WT
+    el.wtCells.innerHTML=''; el.wtNotesSelects.innerHTML='';
+    wtSteps = Array.from({length:stepCount},(_,i)=>{
+      const c=document.createElement('div'); c.className='cell'; c.textContent=i+1;
+      c.addEventListener('click', ()=>{ c.classList.toggle('on'); Settings.queueSave(); });
+      el.wtCells.appendChild(c); return c;
+    });
+    gridCols(stepCount, el.wtCells);
+    wtNotes = Array.from({length:stepCount},(_,i)=>{
+      const s=document.createElement('select');
+      Theory.pitchChoices.forEach(p=>{ const o=document.createElement('option'); o.value=o.textContent=p; s.appendChild(o); });
+      s.value = old.wtNotes[i] ?? ["C3","D3","E3","G3","A3","B3","A3","G3"][i%8];
+      s.addEventListener('change', ()=> Settings.queueSave());
+      el.wtNotesSelects.appendChild(s); return s;
+    });
+    gridCols(stepCount, el.wtNotesSelects);
+
+    // Apply back old toggles
+    for(let i=0;i<Math.min(old.stepCount, stepCount); i++){
+      if(old.steps[i]) steps[i].classList.add('on');
+      if(old.bassSteps[i]) bassSteps[i].classList.add('on');
+      if(old.wtSteps[i]) wtSteps[i].classList.add('on');
+    }
+
+    // UI labels
+    el.stepLbl.textContent = stepCount;
+    drawBarLabels();
+  }
+
+  // Drum grid 4x16
+  function buildDrums(){
+    const g = el.drumGrid; g.innerHTML='';
+    for(let r=0;r<4;r++){
+      const name=document.createElement('div'); name.textContent=drumNames[r];
+      name.style.cssText='display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#9fadc1;font-size:12px;';
+      g.appendChild(name);
+      for(let c=0;c<16;c++){
+        const cell=document.createElement('div'); cell.style.cssText='aspect-ratio:1/1;border:1px solid #24324a;border-radius:8px;background:linear-gradient(180deg,#0e1726,#0b1422);cursor:pointer;';
+        if(drumPattern.grid[r][c]){ cell.classList.add('on'); cell.style.background='linear-gradient(180deg,#183456,#14253f)'; cell.style.borderColor='#2b84c8'; }
+        cell.addEventListener('click',()=>{ cell.classList.toggle('on'); cell.style.background = cell.classList.contains('on') ? 'linear-gradient(180deg,#183456,#14253f)' : 'linear-gradient(180deg,#0e1726,#0b1422)'; cell.style.borderColor = cell.classList.contains('on')? '#2b84c8' : '#24324a'; drumPattern.grid[r][c]=cell.classList.contains('on'); Settings.queueSave(); });
+        g.appendChild(cell);
+      }
+    }
+    g.style.gridTemplateColumns = '100px repeat(16, 1fr)';
+  }
+
+  // Pads + file loaders
+  const sampler = Audio.createSampler();
+  function buildPads(){
+    const padGrid=document.getElementById('mpcPads'); const padTools=document.getElementById('padTools');
+    padGrid.innerHTML=''; padTools.innerHTML='';
+    for(let i=0;i<16;i++){
+      const pad=document.createElement('div'); pad.className='pad';
+      pad.style.cssText='aspect-ratio:1/1;border-radius:16px;background:linear-gradient(180deg,#141f31,#0f1827);border:1px solid #22324b;display:flex;align-items:center;justify-content:center;font-weight:700;color:#c7d8ef;font-size:14px;cursor:pointer;transition:transform .05s, box-shadow .2s;';
+      pad.innerHTML=(i+1)+'<small id="padName'+i+'" style="display:block;font-weight:400;color:#8ea3bd"></small>';
+      pad.addEventListener('mousedown', ()=>{ sampler.play(i); if(el.arm.checked){ Arranger.record({type:'pad', index:i, dur:0.4}); } });
+      pad.addEventListener('touchstart', (e)=>{ e.preventDefault(); sampler.play(i); if(el.arm.checked){ Arranger.record({type:'pad', index:i, dur:0.4}); } }, {passive:false});
+      padGrid.appendChild(pad);
+      const file=document.createElement('input'); file.type='file'; file.accept='audio/*'; file.className='file';
+      file.addEventListener('change', async()=>{ if(file.files[0]){ await sampler.loadFromFile(i,file.files[0]); document.getElementById('padName'+i).textContent=sampler.name(i); Settings.queueSave(); } });
+      padTools.appendChild(file);
     }
   }
 
-  /* Pads + file loaders */
-  const sampler = Audio.createSampler();
-  const padGrid=document.getElementById('mpcPads'); const padTools=document.getElementById('padTools');
-  for(let i=0;i<16;i++){
-    const pad=document.createElement('div'); pad.className='pad'; pad.style.aspectRatio='1/1'; pad.style.borderRadius='16px'; pad.style.background='linear-gradient(180deg,#141f31,#0f1827)'; pad.style.border='1px solid #22324b'; pad.style.display='flex'; pad.style.alignItems='center'; pad.style.justifyContent='center'; pad.style.fontWeight='700'; pad.style.color='#c7d8ef'; pad.style.fontSize='14px'; pad.style.cursor='pointer'; pad.style.transition='transform .05s, box-shadow .2s';
-    pad.innerHTML=(i+1)+'<small id="padName'+i+'" style="display:block;font-weight:400;color:#8ea3bd"></small>';
-    pad.addEventListener('mousedown', ()=>{ sampler.play(i); if(armTl.checked){ Arranger.record({type:'pad', index:i, dur:0.4}); } });
-    pad.addEventListener('touchstart', (e)=>{ e.preventDefault(); sampler.play(i); if(armTl.checked){ Arranger.record({type:'pad', index:i, dur:0.4}); } }, {passive:false});
-    padGrid.appendChild(pad);
-    const file=document.createElement('input'); file.type='file'; file.accept='audio/*'; file.className='file';
-    file.addEventListener('change', async()=>{ if(file.files[0]){ await sampler.loadFromFile(i,file.files[0]); document.getElementById('padName'+i).textContent=sampler.name(i); Settings.queueSave(); } });
-    padTools.appendChild(file);
-  }
+  // bindings
+  el.bpm.addEventListener('input',()=> el.bpmVal.textContent=el.bpm.value);
+  el.stepMinus.addEventListener('click', ()=>{ setStepCount(stepCount-1); });
+  el.stepPlus.addEventListener('click', ()=>{ setStepCount(stepCount+1); });
 
-  /* Param bindings */
-  document.getElementById('bpmVal').textContent=bpmEl.value;
-  document.getElementById('b303Vol').addEventListener('input', e=> { Audio.B303.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('b303Reso').addEventListener('input', e=> { window.__b303Reso=parseFloat(e.target.value); Settings.queueSave(); });
-  document.getElementById('b303Slide').addEventListener('input', e=> { window.__b303Slide=parseFloat(e.target.value); Settings.queueSave(); });
-  document.getElementById('b303Accent').addEventListener('input', e=> { window.__b303Accent=parseFloat(e.target.value); Settings.queueSave(); });
-  window.__b303Reso=8; window.__b303Slide=0.06; window.__b303Accent=0.35;
+  function setStepCount(n){ stepCount = Math.max(4, Math.min(32, n|0)); rebuild({stepCount}); Settings.queueSave(); }
+  function getStepCount(){ return stepCount; }
 
-  document.getElementById('wtVol').addEventListener('input', e=> { Audio.WT.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('wtMorph').addEventListener('input', e=> { Audio.WT.setMorph(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('wtHold').addEventListener('input', e=> { Audio.WT.setHold(parseFloat(e.target.value)); Settings.queueSave(); });
+  // init
+  rebuild({stepCount});
+  buildDrums();
+  buildPads();
 
-  /* Mixer params */
-  document.getElementById('masterVol').addEventListener('input', e=> { Audio.setMasterVol(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('chorusMix').addEventListener('input', e=> { Audio.setChorusMix(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('cutoff').addEventListener('input', e=> { Audio.setFilterCutoff(parseFloat(e.target.value)); Settings.queueSave(); });
-  document.getElementById('reso').addEventListener('input', e=> { Audio.setFilterQ(parseFloat(e.target.value)); Settings.queueSave(); });
-
-  /* Arm / BPM */
-  armTl.addEventListener('change', ()=> Settings.queueSave());
-  bpmEl.addEventListener('input', ()=> { bpmVal.textContent=bpmEl.value; Settings.queueSave(); });
-
-  /* Expose */
-  return { steps, chords, bassSteps, bassNotes, wtSteps, wtNotes, drumPattern, sampler, armTl, playheadEl, bpmEl, chordsRow };
+  return {
+    get stepCount(){ return getStepCount(); },
+    set stepCount(v){ setStepCount(v); },
+    steps: ()=> steps,
+    chords: ()=> chords,
+    bassSteps: ()=> bassSteps,
+    bassNotes: ()=> bassNotes,
+    wtSteps: ()=> wtSteps,
+    wtNotes: ()=> wtNotes,
+    drumPattern, sampler,
+    arm: ()=> el.arm,
+    playhead: ()=> el.playhead,
+    bpm: ()=> el.bpm,
+    chordsSelectsEl: ()=> document.getElementById('chordsSelects')
+  };
 })();
 
 /* ============== Transport ============== */
 const Transport = (()=>{
   const S={running:false, stepIndex:0, timer:null};
-  function stepMs(){ return 60000 / parseInt(document.getElementById('bpm').value,10) / 2; } // 8ths
+  function stepMs(){ return 60000 / parseInt(UI.bpm().value,10) / 2; } // 8ths
   function start(){ Audio.ctx.resume(); if(S.running) return; S.running=true; S.stepIndex=0; tick(); }
   function stop(){ if(!S.running) return; S.running=false; if(S.timer){ clearTimeout(S.timer); S.timer=null; } }
   function scheduleNext(){ if(!S.running) return; const ms=stepMs(); S.timer=setTimeout(tick, ms); }
 
   function tick(){
     if(!S.running) return;
-    const ms=stepMs(); const t=Audio.ctx.currentTime; const i=S.stepIndex;
-    UI.playheadEl.style.left = ((i/8)*100)+'%';
-    // Main chord lane
-    if(UI.steps[i].classList.contains('on')){
-      const ns=Theory.chordToNotes(UI.chords[i]);
+    const ms=stepMs(); const t=Audio.ctx.currentTime; const i=S.stepIndex; const N=UI.stepCount;
+    UI.playhead().style.left = ((i/N)*100)+'%';
+
+    // Chords
+    const steps = UI.steps();
+    if(steps[i]?.classList.contains('on')){
+      const chord = UI.chords()[i];
+      const ns=Theory.chordToNotes(chord);
       ns.forEach(f=>{ Audio.playVoice({freq:f,time:t,dur:ms/1000*0.9,vel:0.85}); if(Arranger.isArmed()) Arranger.record({type:'note', freq:f, dur:ms/1000*0.9, lane:'chord'}); });
     }
-    // Bass 303 lane
-    if(UI.bassSteps[i].classList.contains('on')){
-      const f=Theory.freq(UI.bassNotes[i].value);
+    // Bass
+    if(UI.bassSteps()[i]?.classList.contains('on')){
+      const f=Theory.freq(UI.bassNotes()[i].value);
       Audio.B303.trig({freq:f,time:t,dur:ms/1000*0.95,slide:window.__b303Slide,reso:window.__b303Reso,accent:window.__b303Accent});
       if(Arranger.isArmed()) Arranger.record({type:'bass303', freq:f, dur:ms/1000*0.95, lane:'bass303'});
     }
-    // WT lane
-    if(UI.wtSteps[i].classList.contains('on')){
-      const f=Theory.freq(UI.wtNotes[i].value);
+    // WT
+    if(UI.wtSteps()[i]?.classList.contains('on')){
+      const f=Theory.freq(UI.wtNotes()[i].value);
       Audio.WT.trig({freq:f,time:t});
       if(Arranger.isArmed()) Arranger.record({type:'wt', freq:f, dur:parseFloat(document.getElementById('wtHold').value), lane:'wt'});
     }
-    // Drums
-    const col=i*2;
-    if(UI.drumPattern.grid[0][col]){ Audio.kick(t,1.0); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Kick', dur:0.1, lane:'drums'}); }
-    if(UI.drumPattern.grid[1][col]){ Audio.snare(t,0.85); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Snare', dur:0.1, lane:'drums'}); }
-    if(UI.drumPattern.grid[2][col]){ Audio.hat(t,0.6); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Hat', dur:0.06, lane:'drums'}); }
-    if(UI.drumPattern.grid[3][col]){ Audio.clap(t,0.65); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Clap', dur:0.12, lane:'drums'}); }
+    // Drums (map 16 към N чрез 2*N=16 => N=8; ако N!=8, свирим на всеки 2 стъпки приблизително)
+    const col = Math.round(i*(16/UI.stepCount));
+    const g = UI.drumPattern.grid;
+    if(g[0][col]){ Audio.kick(t,1.0); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Kick', dur:0.1, lane:'drums'}); }
+    if(g[1][col]){ Audio.snare(t,0.85); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Snare', dur:0.1, lane:'drums'}); }
+    if(g[2][col]){ Audio.hat(t,0.6); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Hat', dur:0.06, lane:'drums'}); }
+    if(g[3][col]){ Audio.clap(t,0.65); if(Arranger.isArmed()) Arranger.record({type:'drums', label:'Clap', dur:0.12, lane:'drums'}); }
 
-    S.stepIndex = (S.stepIndex+1)%8;
+    S.stepIndex = (S.stepIndex+1)%N;
     scheduleNext();
   }
   return { start, stop };
@@ -721,11 +818,12 @@ const Arranger = (()=>{
   // limit handle drag
   (function setupLimit(){
     let drag=false, sx=0, sl=0;
+    const lenLabelEl=document.getElementById('lenLabel');
     limit.addEventListener('mousedown', (e)=>{ drag=true; sx=e.clientX; sl=parseFloat(limit.style.left)||(lenSec*pxPerSec); e.preventDefault(); });
     window.addEventListener('mousemove', (e)=>{
       if(!drag) return;
       const dx=e.clientX-sx; const nx=Math.max(40, Math.min(wrap.clientWidth-4, sl+dx));
-      limit.style.left=nx+'px'; lenSec=Math.max(5, nx/pxPerSec); document.getElementById('lenLabel').textContent=fmt(lenSec); drawAxis();
+      limit.style.left=nx+'px'; lenSec=Math.max(5, nx/pxPerSec); lenLabelEl.textContent=fmt(lenSec); drawAxis();
     });
     window.addEventListener('mouseup', ()=> { if(drag){ drag=false; Settings.queueSave(); } });
   })();
@@ -733,20 +831,12 @@ const Arranger = (()=>{
   window.addEventListener('resize', drawAxis);
   drawAxis();
 
-  /* === serialize / deserialize за запазване === */
-  function exportState(){
-    return {
-      lenSec,
-      events: events.map(({__drawn, ...rest})=>rest) // без вътрешни полета
-    };
-  }
+  function exportState(){ return { lenSec, events: events.map(({__drawn, ...rest})=>rest) }; }
   function importState(obj){
     if(!obj) return;
     lenSec = Math.max(5, Number(obj.lenSec||30));
-    // изчисти текущи клипове
     while(track.firstChild) track.removeChild(track.firstChild);
     const toAdd = Array.isArray(obj.events)? obj.events : [];
-    // ще се нарисуват при drawAxis
     events.length = 0;
     for(const ev of toAdd){ events.push({...ev}); }
     setTimeout(drawAxis,0);
@@ -763,18 +853,23 @@ document.getElementById('stopBtn').addEventListener('click', ()=> Transport.stop
 document.getElementById('arrPlay').addEventListener('click', ()=> Arranger.play());
 document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop());
 
-/* ============== Recorder (без промени) ============== */
+/* Mixer params */
+document.getElementById('masterVol').addEventListener('input', e=> { Audio.setMasterVol(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('chorusMix').addEventListener('input', e=> { Audio.setChorusMix(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('cutoff').addEventListener('input', e=> { Audio.setFilterCutoff(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('reso').addEventListener('input', e=> { Audio.setFilterQ(parseFloat(e.target.value)); Settings.queueSave(); });
+
+/* ============== Recorder ============== */
 (function Recorder(){
   const status = document.getElementById('recStatus');
   const btnRec=document.getElementById('recBtn'); const btnStop=document.getElementById('stopRecBtn'); const btnWav=document.getElementById('dlWavBtn'); const btnWebm=document.getElementById('dlWebmBtn');
   let rec=false, mediaRec=null, chunks=[], wavBuffers=null, proc=null;
 
-  // Fallback WAV via ScriptProcessor
   function startWavFallback(){
     const ctx=Audio.ctx;
     const bufferLen=4096; const channelData=[[],[]];
     const sp = ctx.createScriptProcessor(bufferLen, 2, 2);
-    Audio.tapBus.connect(sp); sp.connect(ctx.destination); // monitor too
+    Audio.tapBus.connect(sp); sp.connect(ctx.destination);
     sp.onaudioprocess = e=>{
       if(!rec) return;
       const L = e.inputBuffer.getChannelData(0).slice(0);
@@ -784,25 +879,12 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
     proc = sp;
     wavBuffers = channelData;
   }
-  function stopWavFallback(){
-    if(proc){ try{proc.disconnect();}catch{} proc=null; }
-  }
-  function interleave(left,right){
-    const len=left.length+right.length; const out=new Float32Array(len); let i=0,j=0;
-    for(let k=0;k<len;){ out[k++]=left[i]; out[k++]=right[j]; i++; j++; }
-    return out;
-  }
-  function mergeBuffers(chunks){
-    const len = chunks.reduce((a,b)=>a+b.length,0); const out=new Float32Array(len); let off=0;
-    for(const b of chunks){ out.set(b, off); off+=b.length; } return out;
-  }
+  function stopWavFallback(){ if(proc){ try{proc.disconnect();}catch{} proc=null; } }
+  function interleave(left,right){ const len=left.length+right.length; const out=new Float32Array(len); let i=0,j=0; for(let k=0;k<len;){ out[k++]=left[i]; out[k++]=right[j]; i++; j++; } return out; }
+  function mergeBuffers(chunks){ const len = chunks.reduce((a,b)=>a+b.length,0); const out=new Float32Array(len); let off=0; for(const b of chunks){ out.set(b, off); off+=b.length; } return out; }
   function floatTo16BitPCM(float32){
     const buffer = new ArrayBuffer(float32.length * 2); const view = new DataView(buffer);
-    let offset=0;
-    for(let i=0;i<float32.length;i++,offset+=2){
-      let s = Math.max(-1, Math.min(1, float32[i]));
-      view.setInt16(offset, s<0 ? s*0x8000 : s*0x7FFF, true);
-    }
+    let offset=0; for(let i=0;i<float32.length;i++,offset+=2){ let s = Math.max(-1, Math.min(1, float32[i])); view.setInt16(offset, s<0 ? s*0x8000 : s*0x7FFF, true); }
     return view;
   }
   function writeWav(interleaved, sampleRate){
@@ -813,7 +895,7 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
     writeStr(o,"fmt "); o+=4; view.setUint32(o,16,true); o+=4; view.setUint16(o,1,true); o+=2; view.setUint16(o,2,true); o+=2;
     view.setUint32(o,sampleRate,true); o+=4; view.setUint32(o,sampleRate*4,true); o+=4; view.setUint16(o,4,true); o+=2; view.setUint16(o,16,true); o+=2;
     writeStr(o,"data"); o+=4; view.setUint32(o,dataSize,true); o+=4;
-    const pcm = floatTo16BitPCM(interleaved); // copy data
+    const pcm = floatTo16BitPCM(interleaved);
     new Uint8Array(buffer,44).set(new Uint8Array(pcm.buffer));
     return new Blob([buffer], {type:"audio/wav"});
   }
@@ -825,12 +907,11 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
     chunks=[]; wavBuffers=null;
     if(window.MediaRecorder){
       const dest = Audio.ctx.createMediaStreamDestination();
-      Audio.master.connect(dest); // tap master to stream
+      Audio.master.connect(dest);
       mediaRec = new MediaRecorder(dest.stream);
       mediaRec.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
       mediaRec.onstop = ()=>{ btnWebm.style.display = chunks.length? 'inline-block' : 'none'; };
       mediaRec.start(100);
-      // също стартираме fallback за WAV
       startWavFallback();
     }else{
       startWavFallback();
@@ -873,7 +954,6 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
     Settings.queueSave();
   }
   buttons.forEach(b=> b.addEventListener('click', ()=> setPage(b.dataset.page)));
-  // init (ако е зареден state – Settings ще override-не)
   setPage(document.body.getAttribute('data-page')||'studio');
   window.Pages = { setPage };
 })();
@@ -882,7 +962,7 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
 (function Splitter(){
   const layout = document.getElementById('layout');
   const splitter = document.getElementById('splitter');
-  let dragging=false, startX=0, startLeft=0, total=0;
+  let dragging=false, startX=0, startLeft=0;
 
   function apply(leftFrac){
     leftFrac = Math.max(0.2, Math.min(0.8, leftFrac));
@@ -890,81 +970,90 @@ document.getElementById('arrStop').addEventListener('click', ()=> Arranger.stop(
     layout.style.setProperty('--left', leftFrac+'fr');
     layout.style.setProperty('--right', rightFrac+'fr');
   }
+  function getRatio(){
+    const l = getComputedStyle(layout).getPropertyValue('--left');
+    const r = getComputedStyle(layout).getPropertyValue('--right');
+    const lf = parseFloat(l)||1.15, rf = parseFloat(r)||.85;
+    return lf/(lf+rf);
+  }
 
   splitter.addEventListener('mousedown', (e)=>{
-    dragging=true; startX=e.clientX; total=layout.clientWidth-6; // -splitter width
-    // изчисли текущ left fr като px
-    const left = getComputedStyle(layout).getPropertyValue('--left').trim();
-    startLeft = left.endsWith('fr') ? parseFloat(left) : 1.15;
-    document.body.style.userSelect='none';
+    dragging=true; startX=e.clientX; document.body.style.userSelect='none';
+    startLeft = getRatio();
   });
   window.addEventListener('mousemove', (e)=>{
     if(!dragging) return;
-    const dx = e.clientX - startX;
-    // превеждаме fr към px приблизително чрез текущи пропорции
     const rect = layout.getBoundingClientRect();
-    const pxLeft = (rect.width-6) * (startLeft/(startLeft + parseFloat(getComputedStyle(layout).getPropertyValue('--right'))));
-    const newPxLeft = Math.max(140, Math.min(rect.width-140, pxLeft + dx));
+    const dx = e.clientX - startX;
+    const newPxLeft = Math.max(140, Math.min(rect.width-140, (rect.width-6)*startLeft + dx));
     const leftFrac = newPxLeft / (rect.width-6);
     apply(leftFrac);
   });
   window.addEventListener('mouseup', ()=>{
-    if(dragging){
-      dragging=false;
-      document.body.style.userSelect='';
-      Settings.queueSave();
-    }
+    if(dragging){ dragging=false; document.body.style.userSelect=''; Settings.queueSave(); }
   });
 
-  // публичен метод за state
-  window.Splitter = {
-    setRatio: (leftFrac)=> apply(leftFrac),
-    getRatio: ()=>{
-      const l = getComputedStyle(layout).getPropertyValue('--left');
-      const r = getComputedStyle(layout).getPropertyValue('--right');
-      const lf = parseFloat(l), rf = parseFloat(r);
-      return lf/(lf+rf);
-    }
-  };
+  window.Splitter = { setRatio: (leftFrac)=> apply(leftFrac), getRatio };
+})();
+
+/* ============== Диагонален ресайз (мащабиране на целия layout) ============== */
+(function DiagScale(){
+  const handle = document.getElementById('diagSizer');
+  const wrap = document.getElementById('scaleWrap');
+  let dragging=false, startX=0, startY=0, startScale=1;
+
+  function apply(s){
+    s = Math.max(0.7, Math.min(1.3, s));
+    document.documentElement.style.setProperty('--uiScale', s);
+  }
+
+  handle.addEventListener('mousedown', (e)=>{
+    dragging=true; startX=e.clientX; startY=e.clientY; startScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uiScale'))||1;
+    document.body.style.userSelect='none';
+  });
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    const delta = (dx + dy)/600; // чувствителност
+    apply(startScale + delta);
+  });
+  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; document.body.style.userSelect=''; Settings.queueSave(); } });
+
+  window.DiagScale = { set:(s)=>apply(s), get:()=> parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uiScale'))||1 };
 })();
 
 /* ============== SETTINGS: пълно запазване/възстановяване (localStorage) ============== */
 const Settings = (()=>{
-  const KEY='stepSequencerState_all';
+  const KEY='stepSequencerState_all_v3';
 
-  const $ = (id)=> document.getElementById(id);
-  const inputs = [
-    'bpm','armTl',
-    'b303Vol','b303Reso','b303Slide','b303Accent',
-    'wtVol','wtMorph','wtHold',
-    'masterVol','chorusMix','cutoff','reso'
+  const ids = [
+    'bpm','armTl','b303Vol','b303Reso','b303Slide','b303Accent','wtVol','wtMorph','wtHold','masterVol','chorusMix','cutoff','reso'
   ];
+  window.__b303Reso=8; window.__b303Slide=0.06; window.__b303Accent=0.35;
 
   let saveTimer=null;
-  function queueSave(){
-    if(saveTimer) clearTimeout(saveTimer);
-    saveTimer=setTimeout(saveNow, 200);
-  }
+  function queueSave(){ if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(saveNow, 200); }
 
   function collect(){
-    // steps/chords
     const state = {
-      version: 2,
-      page: document.body.getAttribute('data-page') || 'studio',
-      steps: UI.steps.map(el=> el.classList.contains('on')),
-      chords: UI.chords.slice(),
-      bassSteps: UI.bassSteps.map(c=> c.classList.contains('on')),
-      bassNotes: UI.bassNotes.map(s=> s.value),
-      wtSteps: UI.wtSteps.map(c=> c.classList.contains('on')),
-      wtNotes: UI.wtNotes.map(s=> s.value),
-      drums: UI.drumPattern.grid.map(row=> row.slice()),
+      version:3,
+      page: document.body.getAttribute('data-page')||'studio',
+      stepCount: UI.stepCount,
+      steps: UI.steps().map(el=> el.classList.contains('on')),
+      chords: UI.chords().slice(),
+      bassSteps: UI.bassSteps().map(c=> c.classList.contains('on')),
+      bassNotes: UI.bassNotes().map(s=> s.value),
+      wtSteps: UI.wtSteps().map(c=> c.classList.contains('on')),
+      wtNotes: UI.wtNotes().map(s=> s.value),
+      drums: UI.drumPattern.grid.map(r=> r.slice()),
       inputs: {},
       arranger: Arranger.exportState(),
-      pads: UI.sampler.names(), // само имена (файловете не могат да се пазят в LS)
-      splitter: Splitter.getRatio()
+      pads: UI.sampler.names(),
+      splitter: Splitter.getRatio(),
+      uiScale: DiagScale.get()
     };
-    inputs.forEach(id=>{
-      const el = $(id);
+    ids.forEach(id=>{
+      const el=document.getElementById(id);
       state.inputs[id] = (el.type==='checkbox') ? el.checked : parseFloat(el.value);
     });
     return state;
@@ -976,14 +1065,19 @@ const Settings = (()=>{
     if(state.page){ document.body.setAttribute('data-page', state.page);
       document.querySelectorAll('[data-page]').forEach(b=> b.classList.toggle('active', b.dataset.page===state.page));
     }
+    // scale
+    if(typeof state.uiScale==='number'){ DiagScale.set(state.uiScale); }
 
-    // steps/chords
-    if(Array.isArray(state.steps)) state.steps.forEach((on,i)=> UI.steps[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.chords)) state.chords.forEach((ch,i)=> { if(UI.chords[i]!==undefined){ UI.chords[i]=ch; UI.chordsRow.children[i+1].value=ch; }});
-    if(Array.isArray(state.bassSteps)) state.bassSteps.forEach((on,i)=> UI.bassSteps[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.bassNotes)) state.bassNotes.forEach((val,i)=> { if(UI.bassNotes[i]) UI.bassNotes[i].value=val; });
-    if(Array.isArray(state.wtSteps)) state.wtSteps.forEach((on,i)=> UI.wtSteps[i]?.classList.toggle('on', !!on));
-    if(Array.isArray(state.wtNotes)) state.wtNotes.forEach((val,i)=> { if(UI.wtNotes[i]) UI.wtNotes[i].value=val; });
+    // steps count first -> rebuild UI
+    if(typeof state.stepCount==='number'){ UI.stepCount = state.stepCount; } // rebuild() вътре
+
+    // toggles/selects
+    if(Array.isArray(state.steps)) state.steps.forEach((on,i)=> UI.steps()[i]?.classList.toggle('on', !!on));
+    if(Array.isArray(state.chords)) state.chords.forEach((v,i)=>{ const sel=document.getElementById('chordsSelects').children[i]; if(sel){ sel.value=v; UI.chords()[i]=v; }});
+    if(Array.isArray(state.bassSteps)) state.bassSteps.forEach((on,i)=> UI.bassSteps()[i]?.classList.toggle('on', !!on));
+    if(Array.isArray(state.bassNotes)) state.bassNotes.forEach((val,i)=>{ const s=UI.bassNotes()[i]; if(s) s.value=val; });
+    if(Array.isArray(state.wtSteps)) state.wtSteps.forEach((on,i)=> UI.wtSteps()[i]?.classList.toggle('on', !!on));
+    if(Array.isArray(state.wtNotes)) state.wtNotes.forEach((val,i)=>{ const s=UI.wtNotes()[i]; if(s) s.value=val; });
 
     // drums
     if(Array.isArray(state.drums)){
@@ -991,31 +1085,43 @@ const Settings = (()=>{
       for(let r=0;r<rows.length;r++){
         for(let c=0;c<rows[r].length;c++){
           UI.drumPattern.grid[r][c]=!!rows[r][c];
-          // визуално: клетката е (r*17 + 1 + c) в drumGrid децата (заради label клетката)
-          const base = r*(16+1)+1; // +1 за името на реда
-          const cell = document.getElementById('drumGrid').children[base+c];
-          if(cell){
-            if(rows[r][c]){ cell.classList.add('on'); cell.style.background='linear-gradient(180deg,#183456,#14253f)'; cell.style.borderColor='#2b84c8'; }
-            else{ cell.classList.remove('on'); cell.style.background='linear-gradient(180deg,#0e1726,#0b1422)'; cell.style.borderColor='#24324a'; }
-          }
         }
       }
+      // пребилдваме визуално
+      document.getElementById('drumGrid').innerHTML=''; // ще се попълни със състояние
+      // малко хитринки: просто извикай повторен build и след това задайте стил за „on“
+      const g=document.getElementById('drumGrid');
+      // rebuild visuals
+      (function rebuildDrumsVisuals(){
+        for(let r=0;r<4;r++){
+          const name=document.createElement('div'); name.textContent=["Kick","Snare","Hat","Clap"][r];
+          name.style.cssText='display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#9fadc1;font-size:12px;';
+          g.appendChild(name);
+          for(let c=0;c<16;c++){
+            const cell=document.createElement('div'); cell.style.cssText='aspect-ratio:1/1;border:1px solid #24324a;border-radius:8px;background:linear-gradient(180deg,#0e1726,#0b1422);cursor:pointer;';
+            if(rows[r][c]){ cell.classList.add('on'); cell.style.background='linear-gradient(180deg,#183456,#14253f)'; cell.style.borderColor='#2b84c8'; }
+            cell.addEventListener('click',()=>{ cell.classList.toggle('on'); cell.style.background = cell.classList.contains('on') ? 'linear-gradient(180deg,#183456,#14253f)' : 'linear-gradient(180deg,#0e1726,#0b1422)'; cell.style.borderColor = cell.classList.contains('on')? '#2b84c8' : '#24324a'; UI.drumPattern.grid[r][c]=cell.classList.contains('on'); queueSave(); });
+            g.appendChild(cell);
+          }
+        }
+        g.style.gridTemplateColumns='100px repeat(16, 1fr)';
+      })();
     }
 
     // inputs
     if(state.inputs){
       Object.entries(state.inputs).forEach(([id,val])=>{
-        const el=$(id); if(!el) return;
+        const el=document.getElementById(id); if(!el) return;
         if(el.type==='checkbox'){ el.checked=!!val; }
         else{ el.value = (typeof val==='number')? String(val) : val; el.dispatchEvent(new Event('input')); }
       });
-      $('bpmVal').textContent = $('bpm').value;
+      document.getElementById('bpmVal').textContent = document.getElementById('bpm').value;
     }
 
     // arranger
     if(state.arranger){ Arranger.importState(state.arranger); }
 
-    // pads (само имена за визуализация)
+    // pads labels
     if(Array.isArray(state.pads)){
       state.pads.forEach((nm,i)=>{ const el = document.getElementById('padName'+i); if(el) el.textContent = nm || ""; });
     }
@@ -1024,36 +1130,29 @@ const Settings = (()=>{
     if(typeof state.splitter==='number'){ Splitter.setRatio(state.splitter); }
   }
 
-  function saveNow(){
-    try{
-      const state = collect();
-      localStorage.setItem(KEY, JSON.stringify(state));
-    }catch(e){ console.warn('Save failed', e); }
-  }
+  function saveNow(){ try{ const state=collect(); localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ console.warn('Save failed', e); } }
+  function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return; const state=JSON.parse(raw); apply(state); }catch(e){ console.warn('Load failed', e); } }
+  function reset(){ localStorage.removeItem(KEY); location.reload(); }
 
-  function load(){
-    try{
-      const raw = localStorage.getItem(KEY);
-      if(!raw) return;
-      const state = JSON.parse(raw);
-      apply(state);
-    }catch(e){ console.warn('Load failed', e); }
-  }
-
-  function reset(){
-    localStorage.removeItem(KEY);
-    location.reload();
-  }
-
-  // public
-  return { queueSave, load, saveNow, reset };
+  return { queueSave, saveNow, load, reset };
 })();
 
-/* ==== Куки за Save/Reset бутони и Auto-save ==== */
+/* ==== Save/Reset бутони и Auto-save ==== */
 document.getElementById('saveSettings').addEventListener('click', ()=> Settings.saveNow());
 document.getElementById('resetSettings').addEventListener('click', ()=> Settings.reset());
 window.addEventListener('beforeunload', ()=> Settings.saveNow());
 window.addEventListener('DOMContentLoaded', ()=> Settings.load());
+
+/* ==== Параметри към аудио ==== */
+document.getElementById('b303Vol').addEventListener('input', e=> { Audio.B303.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('b303Reso').addEventListener('input', e=> { window.__b303Reso=parseFloat(e.target.value); Settings.queueSave(); });
+document.getElementById('b303Slide').addEventListener('input', e=> { window.__b303Slide=parseFloat(e.target.value); Settings.queueSave(); });
+document.getElementById('b303Accent').addEventListener('input', e=> { window.__b303Accent=parseFloat(e.target.value); Settings.queueSave(); });
+document.getElementById('wtVol').addEventListener('input', e=> { Audio.WT.setVol(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('wtMorph').addEventListener('input', e=> { Audio.WT.setMorph(parseFloat(e.target.value)); Settings.queueSave(); });
+document.getElementById('wtHold').addEventListener('input', e=> { Audio.WT.setHold(parseFloat(e.target.value)); Settings.queueSave(); });
 </script>
+
+<!-- Долна мобилна навигация вече е в body -->
 </body>
 </html>
