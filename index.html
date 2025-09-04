@@ -258,6 +258,81 @@ input[type="range"], select, button { touch-action: manipulation; }
 }
 
 </style>
+
+<style>
+/* ===== Mobile-first enhancements (desktop unaffected) ===== */
+@media (max-width: 860px) {
+  :root{
+    --tap: 48px;
+    --pad: 10px;
+    --font-base: clamp(14px, 2.8vw, 16px);
+    --font-sm: clamp(12px, 2.2vw, 14px);
+    --font-lg: clamp(16px, 3.4vw, 18px);
+  }
+  html, body { font-size: var(--font-base); -webkit-text-size-adjust: 100%; }
+  body { padding-bottom: calc(env(safe-area-inset-bottom) + 72px); }
+
+  /* Layout: stack panels vertically with consistent gaps */
+  main, .grid, .rows, .row { display: block !important; }
+  section, .panel { width: 100% !important; max-width: 100% !important; }
+  .panel, .card, .box { padding: 12px !important; border-radius: 14px !important; }
+
+  /* Controls: 2-column grid on phone for faster access */
+  .controls, .control-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; }
+  .control, .knob, .slider, .select, .toggle { min-height: var(--tap); }
+  label { font-size: var(--font-sm); }
+
+  /* Big touch targets for steps / cells / pads */
+  .step, .cell, .pad, .drum, .mpc-pad {
+    min-width: var(--tap);
+    min-height: var(--tap);
+    line-height: calc(var(--tap) - 6px);
+    font-size: var(--font-sm);
+  }
+  .pads, .cells, #steps, #bassCells, #wtCells, #drumGrid { gap: 8px !important; }
+
+  /* Timeline/Arranger: make it tall enough and scrollable horizontally */
+  #arrWrap, .arr-wrap { height: 260px !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  #arrAxis, #arrTrack { will-change: transform; }
+  #arrPlayhead { will-change: left; pointer-events: none; }
+  .laneGrid { height: 36px !important; }
+  .laneLabel { font-size: var(--font-sm) !important; }
+  .arr-ev { height: 28px !important; border-radius: 8px !important; }
+
+  /* Sticky transport on mobile */
+  .transport, #transport, .topbar, .navbar {
+    position: fixed !important;
+    left: 0; right: 0; bottom: 0;
+    padding: 10px 12px;
+    display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 8px;
+    z-index: 1000;
+    background: var(--panel-2, rgba(10,14,20,.92));
+    backdrop-filter: saturate(1.1) blur(6px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .transport button, .transport .btn, #transport button {
+    min-height: 44px; font-size: var(--font-sm);
+    touch-action: manipulation;
+  }
+
+  /* Sliders & selects: full width for easier control */
+  input[type="range"] { width: 100% !important; height: 34px; }
+  select { width: 100% !important; min-height: 36px; font-size: var(--font-sm); }
+
+  /* Hide non-critical ornamentation on mobile only (never functional elements) */
+  .decor, .bg-art, .shadow-heavy { display: none !important; }
+
+  /* Improve tap feel */
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  #playhead, #arrPlayhead { transition: none !important; animation: none !important; }
+}
+</style>
+
 </head>
 <body>
 <header>
@@ -1674,6 +1749,17 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 })();
 </script>
 
+
+
+<script>
+(function(){
+  function setMobileClass(){
+    if (window.innerWidth <= 860) document.documentElement.classList.add('is-mobile');
+    else document.documentElement.classList.remove('is-mobile');
+  }
+  setMobileClass(); window.addEventListener('resize', setMobileClass, {passive:true});
+})();
+</script>
 
 </body>
 </html>
