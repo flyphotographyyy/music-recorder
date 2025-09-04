@@ -454,6 +454,15 @@ input[type="range"], select, button { touch-action: manipulation; }
         <input type="range" id="wtHold" min="0.05" max="0.7" step="0.01" value="0.25" />
       </div>
     </div>
+       <!-- CHANGED: Organ / Supersaw levels -->
+      <div class="control">
+        <label>Organ Vol</label>
+        <input type="range" id="organVol" min="0" max="1" step="0.01" value="0.85" />
+      </div>
+      <div class="control">
+        <label>Supersaw Vol</label>
+        <input type="range" id="supersawVol" min="0" max="1" step="0.01" value="0.8" />
+      </div>
 
     <!-- Independent Arranger -->
     <div class="arranger">
@@ -513,6 +522,8 @@ const Audio = (()=>{
   const master = ctx.createGain(); master.gain.value=0.8; master.connect(ctx.destination);
   const tapBus = ctx.createGain(); tapBus.gain.value = 1.0; master.connect(tapBus); // for recorder
   const dryBus = ctx.createGain(); dryBus.gain.value=0.75; dryBus.connect(master);
+  const organBus = ctx.createGain(); organBus.gain.value = 0.85; organBus.connect(dryBus);
+  const supersawBus = ctx.createGain(); supersawBus.gain.value = 0.80; supersawBus.connect(dryBus);
   const chorusBus = ctx.createGain(); chorusBus.gain.value=0.25;
   const chorusDelay = ctx.createDelay(0.05);
   const lfo = ctx.createOscillator(); const lfoGain=ctx.createGain(); lfoGain.gain.value=0.004; lfo.frequency.value=0.8; lfo.connect(lfoGain).connect(chorusDelay.delayTime);
@@ -522,6 +533,8 @@ const Audio = (()=>{
   function setChorusMix(v){ chorusBus.gain.value=v; }
   function setFilterCutoff(v){ params.cutoff=v; }
   function setFilterQ(v){ params.q=v; params.reso=v; }
+  function setOrganVol(v){ try{ organBus.gain.value = v; }catch{} }
+  function setSupersawVol(v){ try{ supersawBus.gain.value = v; }catch{} }
 
   function playVoice({freq=220,time=ctx.currentTime,dur=0.25,vel=0.9}){
     const osc = ctx.createOscillator(); osc.type="sawtooth"; osc.frequency.setValueAtTime(freq,time);
@@ -596,9 +609,8 @@ const Audio = (()=>{
       click.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
 
       osc1.connect(mix); osc2.connect(mix);
-      mix.connect(filt).connect(env).connect(dryBus);
-      noise.connect(click).connect(dryBus);
-
+      mix.connect(filt).connect(env).connect(organBus);
+      noise.connect(click).connect(organBus);
       noise.start(time); noise.stop(time + 0.05);
       osc1.start(time);  osc2.start(time);
       osc1.stop(time + dur + 0.12); osc2.stop(time + dur + 0.12);
@@ -634,9 +646,8 @@ const Audio = (()=>{
         const chTap = ctx.createGain(); chTap.gain.value = chor;
 
         osc.connect(filt).connect(env);
-        env.connect(dryBus);
+        env.connect(supersawBus);
         env.connect(chTap).connect(chorusBus);
-
         osc.start(time);
         osc.stop(time + dur + release + 0.05);
         outs.push({osc, filt, env});
@@ -712,7 +723,7 @@ const Audio = (()=>{
     return { trig, setVol, setMorph, setHold };
   })();
 
-  return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
+  return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, setOrganVol, setSupersawVol, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
 })();
 
 /* ============== Theory helpers ============== */
@@ -861,6 +872,12 @@ const UI = (()=>{
   document.getElementById('wtVol').addEventListener('input', e=> Audio.WT.setVol(parseFloat(e.target.value)));
   document.getElementById('wtMorph').addEventListener('input', e=> Audio.WT.setMorph(parseFloat(e.target.value)));
   document.getElementById('wtHold').addEventListener('input', e=> Audio.WT.setHold(parseFloat(e.target.value)));
+  // CHANGED: bind Organ / Supersaw volumes
+  const organVolEl = document.getElementById('organVol');
+  const superVolEl = document.getElementById('supersawVol');
+  if (organVolEl) organVolEl.addEventListener('input', e => Audio.setOrganVol(parseFloat(e.target.value)));
+  if (superVolEl) superVolEl.addEventListener('input', e => Audio.setSupersawVol(parseFloat(e.target.value)));
+
 
   /* Expose */
   return { steps, chords, bassSteps, bassNotes, wtSteps, wtNotes, drumPattern, sampler, armTl, playheadEl };
@@ -879,8 +896,13 @@ const Transport = (()=>{
     const ms=stepMs(); const t=Audio.ctx.currentTime; const i=S.stepIndex;
     UI.playheadEl.style.left = ((i/8)*100)+'%';
     // Main chord lane
-    if(UI.steps[i].classList.contains('on')){
-      const ns=Theory.chordToNotes(UI.chords[i]);
+    if (UI.steps[i].classList.contains('on')) {
+      const notes = Theory.chordToNotes(UI.chords[i]);
+      const per = ms/1000 * 0.9;
+      notes.forEach(f => {
+        Audio.Organ.trig({ freq:f, time:t, dur:Math.max(0.12, per*0.5), vel:0.9 });
+        Audio.Supersaw.trig({ freq:f, time:t, dur:per, vel:0.85, voices:5, detune:7, cut:2600, reso:0.6, chor:0.28 });
+  });
     }
     // Bass 303 lane
     if(UI.bassSteps[i].classList.contains('on')){
@@ -1145,7 +1167,13 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   window.addEventListener('hashchange', applyHash); applyHash();
 
   // initial sync for any pre-on chord steps
-  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+  // initial sync for any pre-on chord steps (guarded)
+  if (Array.isArray(UI.steps) && typeof window.recChordStep === 'function') {
+    UI.steps.forEach((el,i)=>{
+      if(el.classList.contains('on')) window.recChordStep(i);
+  });
+}
+
 
 })();
 </script>
@@ -1183,7 +1211,13 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   if(['studio','timeline','arranger','drums'].includes(h)){ setPage(h); }
 
   // initial sync for any pre-on chord steps
-  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+  // initial sync for any pre-on chord steps (guarded)
+  if (Array.isArray(UI.steps) && typeof window.recChordStep === 'function') {
+     UI.steps.forEach((el,i)=>{
+       if(el.classList.contains('on')) window.recChordStep(i);
+  });
+}
+
 
 })();
 </script>
@@ -1529,7 +1563,12 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
       }
     } else {
       // original single-hit
-      notes.forEach(nf => Audio.playVoice({freq:nf, time:t, dur:ms/1000*0.9, vel:0.9}));
+      const dur = ms/1000*0.9;
+      notes.forEach(nf => {
+        Audio.playVoice({ freq:nf, time:t, dur, vel:0.6 }); // subtle layer
+        Audio.Organ.trig({ freq:nf, time:t, dur:Math.max(0.12, dur*0.5), vel:0.9 });
+        Audio.Supersaw.trig({ freq:nf, time:t, dur:dur, vel:0.85, voices:5, detune:7, cut:2600, reso:0.6, chor:0.28 });
+  });
     }
   }
 
@@ -1596,7 +1635,11 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   });
 
   // initial sync for any pre-on chord steps
-  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+  // CHANGED: guard against undefined function at load time
+  if (Array.isArray(UI.steps) && typeof recChordStep === 'function') {
+    UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); });
+}
+
 
 })();
 </script>
@@ -1839,4 +1882,5 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
 
