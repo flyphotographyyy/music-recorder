@@ -921,6 +921,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
     const url = URL.createObjectURL(webm);
     const a=document.createElement('a'); a.href=url; a.download='session.webm'; a.click(); URL.revokeObjectURL(url);
   });
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -952,6 +956,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   // Allow hash navigation too (#timeline, #arranger, #drums, #studio)
   function applyHash(){ const h=(location.hash||'').replace('#',''); if(['studio','timeline','arranger','drums'].includes(h)) setPage(h); }
   window.addEventListener('hashchange', applyHash); applyHash();
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -986,6 +994,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   // Apply hash if present
   const h=(location.hash||'').replace('#','');
   if(['studio','timeline','arranger','drums'].includes(h)){ setPage(h); }
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -1395,6 +1407,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
       if(EXT.running) extStop(); else extStart();
     }
   });
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -1481,6 +1497,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
   // Rebuild gridlines once after potential layout move
   rebuildGridlines();
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -1514,6 +1534,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
   } catch (e) {
     console.warn('[Patch#3] Moving chordsRow failed:', e);
   }
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
@@ -1528,11 +1552,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
     const t = secForStep(i, 8);
     Arranger.removeWhere(ev => ev && ev.src==='chord-step' && ev.step===i);
     if(!on || !document.getElementById('armTl').checked) return;
-    const chord = UI.chords[i] || 'Am';
-    const notes = (window.Theory && Theory.chordNotes) ? Theory.chordNotes(chord) : [];
-    notes.forEach(n => {
-      const f = Theory.freq(n);
-      Arranger.record({ type:'note', lane:'chord', freq:f, dur:0.25, t:t, src:'chord-step', step:i });
+    const chord = (UI.chords && UI.chords[i]) ? UI.chords[i] : 'Am';
+    const freqs = Theory.chordToNotes(chord);
+    freqs.forEach(f => {
+      Arranger.record({ type:'note', lane:'chord', freq:f, dur:0.25, t:t, src:'chord-step', step:i, chord });
     });
   }
   function recBassStep(i){
@@ -1561,15 +1584,15 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
     const names = ["Kick","Snare","Hat","Clap"];
     Arranger.record({ type:'drums', lane:'drums', label:names[r], dur:0.12, t:t, src:'drum-cell', row:r, col:c });
   }
-  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ el.addEventListener('click', ()=> recChordStep(i)); }); }
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ el.addEventListener('click', ()=> requestAnimationFrame(()=> recChordStep(i))); }); }
   const chordsRow = document.getElementById('chordsRow');
   if(chordsRow){
-    chordsRow.querySelectorAll('select').forEach((sel,i)=>{ sel.addEventListener('change', ()=>{ if(UI.steps[i]?.classList.contains('on')) recChordStep(i); }); });
+    chordsRow.querySelectorAll('select').forEach((sel,i)=>{ sel.addEventListener('change', ()=>{ if(UI.steps[i]?.classList.contains('on')) requestAnimationFrame(()=> recChordStep(i)); }); });
     const mo = new MutationObserver(()=>{
       chordsRow.querySelectorAll('select').forEach((sel,i)=>{
         if(!sel.__bindFix){
           sel.__bindFix=true;
-          sel.addEventListener('change', ()=>{ if(UI.steps[i]?.classList.contains('on')) recChordStep(i); });
+          sel.addEventListener('change', ()=>{ if(UI.steps[i]?.classList.contains('on')) requestAnimationFrame(()=> recChordStep(i)); });
         }
       });
     });
@@ -1608,6 +1631,10 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
       if(track && axis){ axis.style.width=(Arranger.length()*pxPerSec)+'px'; track.style.width=(Arranger.length()*pxPerSec)+'px'; }
     }catch(e){}
   })();
+
+  // initial sync for any pre-on chord steps
+  if(Array.isArray(UI.steps)){ UI.steps.forEach((el,i)=>{ if(el.classList.contains('on')) recChordStep(i); }); }
+
 })();
 </script>
 
