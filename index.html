@@ -571,6 +571,82 @@ const Audio = (()=>{
     function name(i){ return slots[i]?.name || "Empty"; }
     return { loadFromFile, play, name };
   }
+    // --- House Organ (M1-style, percussive) ---
+  const Organ = (()=> {
+    function trig({freq=440, time=ctx.currentTime, dur=0.20, vel=0.9, tone=0.6}){
+      const osc1 = ctx.createOscillator(); osc1.type = "square";  osc1.frequency.setValueAtTime(freq, time);
+      const osc2 = ctx.createOscillator(); osc2.type = "sawtooth"; osc2.frequency.setValueAtTime(freq*2, time);
+      const mix = ctx.createGain(); mix.gain.value = 0.6;
+
+      const filt = ctx.createBiquadFilter(); filt.type = "lowpass";
+      filt.frequency.setValueAtTime(1800 + tone*1800, time);
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, time);
+      env.gain.linearRampToValueAtTime(vel, time + 0.005);        // very fast attack
+      env.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.12, dur)); // plucky decay
+
+      // tiny click burst for the M1-style attack perception
+      const nsz = Math.floor(0.02 * ctx.sampleRate);
+      const nbuf = ctx.createBuffer(1, nsz, ctx.sampleRate);
+      const nd = nbuf.getChannelData(0);
+      for (let i=0;i<nsz;i++) nd[i] = Math.random()*2 - 1;
+      const noise = ctx.createBufferSource(); noise.buffer = nbuf;
+      const click = ctx.createGain(); click.gain.setValueAtTime(0.6, time);
+      click.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
+
+      osc1.connect(mix); osc2.connect(mix);
+      mix.connect(filt).connect(env).connect(dryBus);
+      noise.connect(click).connect(dryBus);
+
+      noise.start(time); noise.stop(time + 0.05);
+      osc1.start(time);  osc2.start(time);
+      osc1.stop(time + dur + 0.12); osc2.stop(time + dur + 0.12);
+
+      osc1.onended = ()=>{ try{
+        osc1.disconnect(); osc2.disconnect(); mix.disconnect();
+        filt.disconnect(); env.disconnect(); click.disconnect();
+      }catch{} };
+    }
+    return { trig };
+  })();
+
+  // --- Supersaw (5 detuned saws + chorus send) ---
+  const Supersaw = (()=> {
+    function trig({freq=440, time=ctx.currentTime, dur=0.60, vel=0.9, voices=5, detune=8, cut=2400, reso=0.5, chor=0.25, attack=0.008, release=0.25}){
+      const outs = [];
+      for (let i=0;i<voices;i++){
+        const osc = ctx.createOscillator(); osc.type = "sawtooth";
+        const det = (i - (voices-1)/2) * detune;      // symmetric detune in cents
+        osc.detune.setValueAtTime(det, time);
+        osc.frequency.setValueAtTime(freq, time);
+
+        const filt = ctx.createBiquadFilter(); filt.type = "lowpass";
+        filt.Q.value = reso; filt.frequency.setValueAtTime(cut, time);
+
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.0001, time);
+        env.gain.linearRampToValueAtTime(vel, time + attack);
+        env.gain.linearRampToValueAtTime(0.85*vel, time + attack + Math.max(0.05, dur*0.4));
+        env.gain.linearRampToValueAtTime(0.0001, time + dur + release);
+
+        // dry + simple chorus bus tap (your Audio has `chorusBus` already)
+        const chTap = ctx.createGain(); chTap.gain.value = chor;
+
+        osc.connect(filt).connect(env);
+        env.connect(dryBus);
+        env.connect(chTap).connect(chorusBus);
+
+        osc.start(time);
+        osc.stop(time + dur + release + 0.05);
+        outs.push({osc, filt, env});
+      }
+      outs[outs.length-1].osc.onended = ()=> outs.forEach(o=>{ try{
+        o.osc.disconnect(); o.filt.disconnect(); o.env.disconnect();
+      }catch{} });
+    }
+    return { trig };
+  })();
 
   /* Bass 303 (mono) */
   const B303 = (()=>{
@@ -636,7 +712,7 @@ const Audio = (()=>{
     return { trig, setVol, setMorph, setHold };
   })();
 
-  return { ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
+  return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
 })();
 
 /* ============== Theory helpers ============== */
@@ -875,7 +951,7 @@ const Arranger = (()=>{
     }
   }
   function trigger(ev, when){
-    if(ev.type==='note'){ Audio.playVoice({freq:ev.freq,time:when,dur:ev.dur||0.25,vel:0.9}); }
+    if(ev.type==='note'){ Audio.playVoice({freq:ev.freq,time:when,dur:ev.dur||0.25,vel:0.9}); Audio.Organ.trig({    freq: ev.freq, time: when, dur: 0.20, vel: 0.9 }); Audio.Supersaw.trig({ freq: ev.freq, time: when, dur: Math.max(0.5, ev.dur||0.25), vel: 0.9 }); }
     else if(ev.type==='bass303'){ Audio.B303.trig({freq:ev.freq,time:when,dur:ev.dur||0.25,slide:window.__b303Slide,reso:window.__b303Reso,accent:window.__b303Accent}); }
     else if(ev.type==='wt'){ Audio.WT.trig({freq:ev.freq,time:when}); }
     else if(ev.type==='drums'){ if(ev.label==='Kick') Audio.kick(when,1.0); else if(ev.label==='Snare') Audio.snare(when,0.85); else if(ev.label==='Hat') Audio.hat(when,0.6); else if(ev.label==='Clap') Audio.clap(when,0.65); }
@@ -1763,3 +1839,4 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
