@@ -880,9 +880,43 @@ const UI = (()=>{
   // CHANGED: bind Organ / Supersaw volumes
   const organVolEl = document.getElementById('organVol');
   const superVolEl = document.getElementById('supersawVol');
-  if (organVolEl) organVolEl.addEventListener('input', e => Audio.setOrganVol(parseFloat(e.target.value)));
-  if (superVolEl) superVolEl.addEventListener('input', e => Audio.setSupersawVol(parseFloat(e.target.value)));
+  const organMuteEl    = document.getElementById('organMute');      // чекбокс от HTML
+  const supersawMuteEl = document.getElementById('supersawMute');   // чекбокс от HTML
+  // пазим последната НЕ-mute стойност на плъзгачите
+  let __organLast = organVolEl ? parseFloat(organVolEl.value) : 0.85;
+  let __superLast = superVolEl ? parseFloat(superVolEl.value) : 0.80;
 
+  // плъзгачите: ако е mute → само запомняме, иначе пращаме към Audio
+  if (organVolEl) organVolEl.addEventListener('input', e=>{
+    const v = parseFloat(e.target.value);
+    if (organMuteEl?.checked) { __organLast = v; }
+    else { Audio.setOrganVol(v); }
+  });
+
+  if (superVolEl) superVolEl.addEventListener('input', e=>{
+    const v = parseFloat(e.target.value);
+    if (supersawMuteEl?.checked) { __superLast = v; }
+    else { Audio.setSupersawVol(v); }
+  });
+
+// чекбоксовете: 0 при mute, връщаме последната при unmute
+  if (organMuteEl) organMuteEl.addEventListener('change', e=>{
+    if (e.target.checked){
+      __organLast = parseFloat(organVolEl?.value ?? __organLast);
+      Audio.setOrganVol(0);
+    } else {
+      Audio.setOrganVol(__organLast);
+     }
+   });
+
+  if (supersawMuteEl) supersawMuteEl.addEventListener('change', e=>{
+    if (e.target.checked){
+      __superLast = parseFloat(superVolEl?.value ?? __superLast);
+      Audio.setSupersawVol(0);
+    } else {
+      Audio.setSupersawVol(__superLast);
+    }
+  });
 
   /* Expose */
   return { steps, chords, bassSteps, bassNotes, wtSteps, wtNotes, drumPattern, sampler, armTl, playheadEl };
@@ -1887,6 +1921,7 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
 
 
 
