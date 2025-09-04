@@ -457,11 +457,16 @@ input[type="range"], select, button { touch-action: manipulation; }
        <!-- CHANGED: Organ / Supersaw levels -->
       <div class="control">
         <label>Organ Vol</label>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#8aa0b7">
+          <input type="checkbox" id="organMute" style="width:14px;height:14px"> Mute </label>
         <input type="range" id="organVol" min="0" max="1" step="0.01" value="0.85" />
       </div>
       <div class="control">
         <label>Supersaw Vol</label>
-        <input type="range" id="supersawVol" min="0" max="1" step="0.01" value="0.8" />
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#8aa0b7">
+          <input type="checkbox" id="supersawMute" style="width:14px;height:14px"> Mute </label>
+          
+       <input type="range" id="supersawVol" min="0" max="1" step="0.01" value="0.8" />
       </div>
 
     <!-- Independent Arranger -->
@@ -1882,5 +1887,6 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
 
 
