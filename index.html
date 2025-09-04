@@ -568,19 +568,55 @@ const Audio = (()=>{
 const Theory = (()=>{
   const noteMap={"C":0,"C#":1,"Db":1,"D":2,"D#":3,"Eb":3,"E":4,"F":5,"F#":6,"Gb":6,"G":7,"G#":8,"Ab":8,"A":9,"A#":10,"Bb":10,"B":11};
   function freq(name="C4"){ const m=/^([A-G][#b]?)(-?\d)$/.exec(name); if(!m) return 440; const n=noteMap[m[1]]??0; const oct=parseInt(m[2],10); const midi=12*(oct+1)+n; return 440*Math.pow(2,(midi-69)/12); }
-  function chordToNotes(label="Am"){
-    const roots=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
-    let root=roots.find(r=>label.startsWith(r))||"C"; let q=label.slice(root.length).trim();
-    const baseMidi=12*(4+1)+{"C":0,"Db":1,"D":2,"Eb":3,"E":4,"F":5,"Gb":6,"G":7,"Ab":8,"A":9,"Bb":10,"B":11}[root];
-    const thirds = q.includes("m") && !q.includes("maj") ? 3 : 4;
-    const seventh = q.includes("maj7")? 11 : (q.includes("7")? 10 : null);
-    const sus2=/sus2/.test(q), sus4=/sus4/.test(q), add9=/add9/.test(q);
-    const notes=[]; if(sus2){ notes.push(baseMidi+2); } else if(sus4){ notes.push(baseMidi+5); } else { notes.push(baseMidi+thirds); }
-    notes.push(baseMidi); notes.push(baseMidi+7); if(seventh!==null) notes.push(baseMidi+seventh); if(add9) notes.push(baseMidi+14);
-    return notes.map(m=>440*Math.pow(2,(m-69)/12));
-  }
-  const pitchChoices = (()=>{
-    const octaves=[2,3,4]; const keys=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  
+function chordToNotes(label="Am"){
+  const roots=["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+  let root=roots.find(r=>label.startsWith(r))||"C";
+  let q=label.slice(root.length).trim();
+  const rootMap={"C":0,"C#":1,"Db":1,"D":2,"D#":3,"Eb":3,"E":4,"F":5,"F#":6,"Gb":6,"G":7,"G#":8,"Ab":8,"A":9,"A#":10,"Bb":10,"B":11};
+  const baseMidi=12*(4+1)+rootMap[root];
+  const notes=[]; function add(n){ notes.push(baseMidi+n); }
+
+  const isMinor = /(^|[^a-z])m(?!aj)/i.test(q);
+  const isMaj = /maj/i.test(q) && !/m(?!aj)/i.test(q);
+  const isDim = /dim|o/.test(q);
+  const isAug = /aug|\+/.test(q);
+  const sus2 = /sus2/.test(q);
+  const sus4 = /sus4/.test(q);
+  const add9 = /add9/.test(q);
+  const add11 = /add11/.test(q);
+  const add13 = /add13/.test(q);
+
+  let third=4, fifth=7;
+  if(isMinor) third=3;
+  if(isDim){ third=3; fifth=6; }
+  if(isAug){ third=4; fifth=8; }
+  if(sus2){ third=2; }
+  if(sus4){ third=5; }
+
+  add(0); add(third); add(fifth);
+
+  if(/maj7/.test(q)) add(11);
+  else if(/m7b5/.test(q)){ add(10); }
+  else if(/m7/.test(q)) add(10);
+  else if(/7/.test(q)) add(10);
+
+  if(/(^|[^a-z])6(?!\d)/.test(q) || /maj6/.test(q)) add(9);
+  if(/m6/.test(q)) add(9);
+
+  if(/maj9/.test(q)){ add(11); add(14); }
+  else if(/m9/.test(q)){ add(10); add(14); }
+  else if(/(^|[^a-z])9(?!\d)/.test(q)){ add(10); add(14); }
+  if(add9) add(14);
+
+  if(add11) add(17);
+  if(add13) add(21);
+
+  const uniq=Array.from(new Set(notes)).sort((a,b)=>a-b);
+  return uniq.map(m=>440*Math.pow(2,(m-69)/12));
+}
+const pitchChoices = (()=>{
+    const octaves=[1,2,3,4,5,6]; const keys=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
     const arr=[]; for(const o of octaves){ for(const k of keys){ arr.push(k+o); } } return arr;
   })();
   return { freq, chordToNotes, pitchChoices };
@@ -602,7 +638,7 @@ const UI = (()=>{
   });
 
   /* chord selects */
-  const chordOptions=["C","Cm","Cmaj7","C7","C add9","C sus2","C sus4","D","Dm","Dmaj7","D7","D add9","D sus2","D sus4","E","Em","Emaj7","E7","E add9","E sus2","E sus4","F","Fm","Fmaj7","F7","F add9","F sus2","F sus4","G","Gm","Gmaj7","G7","G add9","G sus2","G sus4","A","Am","Amaj7","A7","A add9","A sus2","A sus4","B","Bm","Bmaj7","B7","B add9","B sus2","B sus4"];
+  const chordOptions=["C","Cm","Cmaj7","C7","Cm7","Csus2","Csus4","Cadd9","C6","Cm6","C9","Cmaj9","Cm9","Cadd11","Cadd13","Cdim","Caug","Cm7b5","C#","C#m","C#maj7","C#7","C#m7","C#sus2","C#sus4","C#add9","C#6","C#m6","C#9","C#maj9","C#m9","C#add11","C#add13","C#dim","C#aug","C#m7b5","Db","Dbm","Dbmaj7","Db7","Dbm7","Dbsus2","Dbsus4","Dbadd9","Db6","Dbm6","Db9","Dbmaj9","Dbm9","Dbadd11","Dbadd13","Dbdim","Dbaug","Dbm7b5","D","Dm","Dmaj7","D7","Dm7","Dsus2","Dsus4","Dadd9","D6","Dm6","D9","Dmaj9","Dm9","Dadd11","Dadd13","Ddim","Daug","Dm7b5","D#","D#m","D#maj7","D#7","D#m7","D#sus2","D#sus4","D#add9","D#6","D#m6","D#9","D#maj9","D#m9","D#add11","D#add13","D#dim","D#aug","D#m7b5","Eb","Ebm","Ebmaj7","Eb7","Ebm7","Ebsus2","Ebsus4","Ebadd9","Eb6","Ebm6","Eb9","Ebmaj9","Ebm9","Ebadd11","Ebadd13","Ebdim","Ebaug","Ebm7b5","E","Em","Emaj7","E7","Em7","Esus2","Esus4","Eadd9","E6","Em6","E9","Emaj9","Em9","Eadd11","Eadd13","Edim","Eaug","Em7b5","F","Fm","Fmaj7","F7","Fm7","Fsus2","Fsus4","Fadd9","F6","Fm6","F9","Fmaj9","Fm9","Fadd11","Fadd13","Fdim","Faug","Fm7b5","F#","F#m","F#maj7","F#7","F#m7","F#sus2","F#sus4","F#add9","F#6","F#m6","F#9","F#maj9","F#m9","F#add11","F#add13","F#dim","F#aug","F#m7b5","Gb","Gbm","Gbmaj7","Gb7","Gbm7","Gbsus2","Gbsus4","Gbadd9","Gb6","Gbm6","Gb9","Gbmaj9","Gbm9","Gbadd11","Gbadd13","Gbdim","Gbaug","Gbm7b5","G","Gm","Gmaj7","G7","Gm7","Gsus2","Gsus4","Gadd9","G6","Gm6","G9","Gmaj9","Gm9","Gadd11","Gadd13","Gdim","Gaug","Gm7b5","G#","G#m","G#maj7","G#7","G#m7","G#sus2","G#sus4","G#add9","G#6","G#m6","G#9","G#maj9","G#m9","G#add11","G#add13","G#dim","G#aug","G#m7b5","Ab","Abm","Abmaj7","Ab7","Abm7","Absus2","Absus4","Abadd9","Ab6","Abm6","Ab9","Abmaj9","Abm9","Abadd11","Abadd13","Abdim","Abaug","Abm7b5","A","Am","Amaj7","A7","Am7","Asus2","Asus4","Aadd9","A6","Am6","A9","Amaj9","Am9","Aadd11","Aadd13","Adim","Aaug","Am7b5","A#","A#m","A#maj7","A#7","A#m7","A#sus2","A#sus4","A#add9","A#6","A#m6","A#9","A#maj9","A#m9","A#add11","A#add13","A#dim","A#aug","A#m7b5","Bb","Bbm","Bbmaj7","Bb7","Bbm7","Bbsus2","Bbsus4","Bbadd9","Bb6","Bbm6","Bb9","Bbmaj9","Bbm9","Bbadd11","Bbadd13","Bbdim","Bbaug","Bbm7b5","B","Bm","Bmaj7","B7","Bm7","Bsus2","Bsus4","Badd9","B6","Bm6","B9","Bmaj9","Bm9","Badd11","Badd13","Bdim","Baug","Bm7b5"]
   const chords = Array.from({length:8},()=> "Am");
   for(let i=0;i<8;i++){
     const s=document.createElement('select'); chordOptions.forEach(opt=>{ const o=document.createElement('option'); o.value=o.textContent=opt; s.appendChild(o); });
