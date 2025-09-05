@@ -1848,7 +1848,31 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
     }
 
     // Drums (map 8th steps to 16-grid)
-    const col = (i*2) % 16;
+   
+    // Drums (map 8th steps to 16-grid)
+    const col = (i * 2) % 16;                   // i = 8-стъпков индекс → 16-стъпкова колона
+    const grid = UI.drumPattern?.grid;
+
+    if (grid) {
+      // 0:Kick, 1:Snare, 2:Hat, 3:Clap
+      if (grid[0]?.[col]) {
+        // ако имаш Drum.play() – предпочети него:
+        if (window.Drum?.play) Drum.play('Kick', t, 1.0);
+        else Audio.kick(t, 1.0);               // fallback към твоите функции
+      }
+      if (grid[1]?.[col]) {
+        if (window.Drum?.play) Drum.play('Snare', t, 0.9);
+        else Audio.snare(t, 0.85);
+      }
+      if (grid[2]?.[col]) {
+        if (window.Drum?.play) Drum.play('Hat', t, 0.8);
+        else Audio.hat(t, 0.6);
+      }
+      if (grid[3]?.[col]) {
+        if (window.Drum?.play) Drum.play('Clap', t, 0.9);
+        else Audio.clap(t, 0.65);
+      }
+    }
 
     EXT.i = nextIndex(N);
     EXT.timer = setTimeout(tick, ms);
@@ -2126,6 +2150,7 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
 
 
 
