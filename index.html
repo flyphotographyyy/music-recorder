@@ -511,6 +511,57 @@ input[type="range"], select, button { touch-action: manipulation; }
     <div class="row">
       <div class="control"><label>Kick/Snare/Hat/Clap</label><small style="color:#8aa0b7">16‑step решетка</small></div>
     </div>
+       <!-- 909/808 Drum Selector (per-voice) -->
+    <div class="row" id="drumKits">
+      <!-- Kick -->
+      <div class="control">
+        <label>Kick Kit</label>
+        <select id="kickKit">
+          <option>Synth</option><option>808</option><option>909</option>
+        </select>
+        <label style="margin-top:6px">Tune (cents)</label>
+        <input type="range" id="kickTune" min="-1200" max="1200" step="10" value="0" />
+        <label>Decay (s)</label>
+        <input type="range" id="kickDecay" min="0.05" max="1.2" step="0.01" value="0.26" />
+      </div>
+
+      <!-- Snare -->
+      <div class="control">
+        <label>Snare Kit</label>
+        <select id="snareKit">
+          <option>Synth</option><option>808</option><option>909</option>
+        </select>
+        <label style="margin-top:6px">Tune (cents)</label>
+        <input type="range" id="snareTune" min="-1200" max="1200" step="10" value="0" />
+        <label>Decay (s)</label>
+        <input type="range" id="snareDecay" min="0.05" max="0.8" step="0.01" value="0.18" />
+      </div>
+
+      <!-- Hats -->
+      <div class="control">
+        <label>Hats Kit</label>
+        <select id="hatKit">
+          <option>Synth</option><option>808</option><option>909</option>
+        </select>
+        <label style="margin-top:6px">Tune (cents)</label>
+        <input type="range" id="hatTune" min="-1200" max="1200" step="10" value="0" />
+        <label>Decay (s)</label>
+        <input type="range" id="hatDecay" min="0.02" max="0.4" step="0.005" value="0.08" />
+      </div>
+
+      <!-- Clap -->
+      <div class="control">
+        <label>Clap Kit</label>
+        <select id="clapKit">
+          <option>Synth</option><option>808</option><option>909</option>
+        </select>
+        <label style="margin-top:6px">Tune (cents)</label>
+        <input type="range" id="clapTune" min="-1200" max="1200" step="10" value="0" />
+        <label>Decay (s)</label>
+        <input type="range" id="clapDecay" min="0.05" max="0.6" step="0.01" value="0.22" />
+      </div>
+    </div>
+
     <div class="drum-grid" id="drumGrid" style="display:grid;grid-template-columns: 100px repeat(16, 1fr);gap:6px;padding:8px;background:var(--panel-2);border-radius:12px;border:1px solid #1a263b"></div>
 
     <h2>MPC Sampler Pads</h2>
@@ -580,6 +631,160 @@ const Audio = (()=>{
     src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}}
   }
   function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ snare(time+i*0.01, vel*0.55); } }
+  // --- 909/808 Drum Selector (router) ---
+  const Drum = (() => {
+    const cents = (c)=> Math.pow(2, (c||0)/1200);
+
+    // ----- Synth engines = твоите текущи -----
+    function kickSynth(time, vel, fMul, decay){
+      // ползвай твоята "kick", но с параметри
+      const osc=ctx.createOscillator(), env=ctx.createGain();
+      osc.type="sine";
+      const fStart = 140 * (fMul||1);
+      const fEnd   = 40  * (fMul||1);
+      osc.frequency.setValueAtTime(fStart,time);
+      osc.frequency.exponentialRampToValueAtTime(fEnd, time + Math.min(0.12, decay||0.26));
+      env.gain.setValueAtTime(0.0001,time);
+      env.gain.exponentialRampToValueAtTime(vel, time+0.002);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + (decay||0.26));
+      osc.connect(env).connect(dryBus);
+      osc.start(time); osc.stop(time + (decay||0.26) + 0.05);
+      osc.onended=()=>{try{osc.disconnect();env.disconnect();}catch{}};
+    }
+    function snareSynth(time, vel, fMul, decay){
+      const size=2*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
+      for(let i=0;i<size;i++) data[i]=Math.random()*2-1;
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const bp=ctx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=1800*(fMul||1); bp.Q.value=0.6;
+      const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time);
+      env.gain.exponentialRampToValueAtTime(vel, time+0.002);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + (decay||0.18));
+      src.connect(bp).connect(env).connect(dryBus); src.start(time); src.stop(time + (decay||0.18) + 0.05);
+      src.onended=()=>{try{src.disconnect();bp.disconnect();env.disconnect();}catch{}};
+    }
+    function hatSynth(time, vel, fMul, decay){
+      const size=1*ctx.sampleRate, buf=ctx.createBuffer(1,size,ctx.sampleRate), data=buf.getChannelData(0);
+      for(let i=0;i<size;i++) data[i]=(Math.random()*2-1)*0.7;
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=7000*(fMul||1);
+      const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time);
+      env.gain.exponentialRampToValueAtTime(vel, time+0.001);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + (decay||0.08));
+      src.connect(hp).connect(env).connect(dryBus); src.start(time); src.stop(time + (decay||0.08) + 0.02);
+      src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}};
+    }
+    function clapSynth(time, vel, fMul, decay){
+      // 3 кратки „плесвания“ от твоята snare логика
+      for(let i=0;i<3;i++){
+        const t = time + i*0.01;
+        snareSynth(t, vel*0.55, fMul, Math.max(0.08, (decay||0.22) - i*0.02));
+      }
+    }
+
+    // ----- 808-ish -----
+    function kick808(time, vel, fMul, decay){
+      const osc=ctx.createOscillator(), env=ctx.createGain();
+      osc.type="sine";
+      const f0 = 55 * (fMul||1); // по-дълбок
+      osc.frequency.setValueAtTime(f0*1.9, time);
+      osc.frequency.exponentialRampToValueAtTime(f0, time + 0.18);
+      env.gain.setValueAtTime(0.0001,time);
+      env.gain.exponentialRampToValueAtTime(vel, time+0.003);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.25, decay||0.4));
+      osc.connect(env).connect(dryBus); osc.start(time); osc.stop(time + Math.max(0.25, decay||0.4) + 0.05);
+      osc.onended=()=>{try{osc.disconnect();env.disconnect();}catch{}};
+    }
+    function snare808(time, vel, fMul, decay){
+      const nsz = 2*ctx.sampleRate, nbuf=ctx.createBuffer(1,nsz,ctx.sampleRate), d=nbuf.getChannelData(0);
+      for(let i=0;i<nsz;i++) d[i]=Math.random()*2-1;
+      const src=ctx.createBufferSource(); src.buffer=nbuf;
+      const lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=3200*(fMul||1);
+      const env=ctx.createGain(); env.gain.setValueAtTime(0.0001,time);
+      env.gain.exponentialRampToValueAtTime(vel, time+0.0015);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.12, decay||0.25));
+      src.connect(lp).connect(env).connect(dryBus); src.start(time); src.stop(time + Math.max(0.12, decay||0.25)+0.02);
+      src.onended=()=>{try{src.disconnect();lp.disconnect();env.disconnect();}catch{}};
+    }
+    function hat808(time, vel, fMul, decay){
+      // ярък шум + HP
+      hatSynth(time, vel, (fMul||1)*1.1, Math.max(0.03, decay||0.06));
+    }
+    function clap808(time, vel, fMul, decay){
+      // 4-тапова 808 клоп
+      const taps=[0,0.012,0.024,0.048];
+      taps.forEach((off,i)=> clapSynth(time+off, vel*(i?0.7:1), fMul, Math.max(0.08, (decay||0.22) - i*0.01)));
+    }
+
+    // ----- 909-ish -----
+    function kick909(time, vel, fMul, decay){
+      const osc=ctx.createOscillator(), env=ctx.createGain(), click=ctx.createGain();
+      osc.type="sine";
+      const f0 = 60*(fMul||1);
+      osc.frequency.setValueAtTime(f0*2.2,time);
+      osc.frequency.exponentialRampToValueAtTime(f0, time + 0.09);
+      env.gain.setValueAtTime(0.0001,time);
+      env.gain.linearRampToValueAtTime(vel, time+0.004);
+      env.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.18, decay||0.28));
+      // малък „click“
+      const nbuf=ctx.createBuffer(1, Math.floor(0.006*ctx.sampleRate), ctx.sampleRate);
+      nbuf.getChannelData(0).forEach((_,i,a)=> a[i]=(Math.random()*2-1)*Math.pow(1-i/a.length,3));
+      const n=ctx.createBufferSource(); n.buffer=nbuf; click.gain.value=0.9;
+      n.connect(click).connect(dryBus); n.start(time); n.stop(time+0.01);
+      osc.connect(env).connect(dryBus); osc.start(time); osc.stop(time + Math.max(0.18, decay||0.28) + 0.05);
+      osc.onended=()=>{try{osc.disconnect();env.disconnect();click.disconnect();}catch{}};
+    }
+    function snare909(time, vel, fMul, decay){
+      // noise bandpass + два тона
+      snareSynth(time, vel*0.75, fMul, Math.max(0.12, decay||0.2));
+      const t1=ctx.createOscillator(), t2=ctx.createOscillator(), eg=ctx.createGain();
+      t1.type=t2.type="sine";
+      t1.frequency.value=330*(fMul||1); t2.frequency.value=185*(fMul||1);
+      eg.gain.setValueAtTime(0.0001,time);
+      eg.gain.linearRampToValueAtTime(0.35*vel, time+0.002);
+      eg.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.08, (decay||0.2)-0.04));
+      t1.connect(eg); t2.connect(eg); eg.connect(dryBus);
+      t1.start(time); t2.start(time); t1.stop(time+0.2); t2.stop(time+0.2);
+      eg.onended=()=>{try{t1.disconnect();t2.disconnect();eg.disconnect();}catch{}};
+    }
+    function hat909(time, vel, fMul, decay){
+      // по-метален – просто по-къс/ярък шум
+      hatSynth(time, vel, (fMul||1)*1.3, Math.max(0.02, decay||0.05));
+    }
+    function clap909(time, vel, fMul, decay){
+      clapSynth(time, vel, fMul, Math.max(0.1, decay||0.24));
+    }
+
+    // --- Router by label + UI controls (selects/sliders) ---
+    function ui(label, id){ return document.getElementById(label.toLowerCase()+id); }
+    function play(label, time=ctx.currentTime, vel=0.9){
+      const kit = (ui(label,'Kit')?.value || 'Synth').toLowerCase();
+      const tune = parseFloat(ui(label,'Tune')?.value || 0);
+      const decay = parseFloat(ui(label,'Decay')?.value || 0);
+      const fMul = cents(tune);
+
+      if(label==='Kick'){
+        if(kit==='808') return kick808(time, vel, fMul, decay);
+        if(kit==='909') return kick909(time, vel, fMul, decay);
+        return kickSynth(time, vel, fMul, decay);
+      }
+      if(label==='Snare'){
+        if(kit==='808') return snare808(time, vel, fMul, decay);
+        if(kit==='909') return snare909(time, vel, fMul, decay);
+        return snareSynth(time, vel, fMul, decay);
+      }
+      if(label==='Hat' || label==='Hats'){
+        if(kit==='808') return hat808(time, vel, fMul, decay);
+        if(kit==='909') return hat909(time, vel, fMul, decay);
+        return hatSynth(time, vel, fMul, decay);
+      }
+      if(label==='Clap'){
+        if(kit==='808') return clap808(time, vel, fMul, decay);
+        if(kit==='909') return clap909(time, vel, fMul, decay);
+        return clapSynth(time, vel, fMul, decay);
+      }
+    }
+    return { play };
+  })();
 
   /* Sampler (pads) */
   function createSampler(){
@@ -728,7 +933,7 @@ const Audio = (()=>{
     return { trig, setVol, setMorph, setHold };
   })();
 
-  return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, setOrganVol, setSupersawVol, playVoice, kick, snare, hat, clap, createSampler, B303, WT };
+  return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, setOrganVol, setSupersawVol, playVoice, kick, snare, hat, clap, createSampler, B303, WT, Drum };
 })();
 
 /* ============== Theory helpers ============== */
@@ -1015,7 +1220,7 @@ const Arranger = (()=>{
     if(ev.type==='note'){ Audio.playVoice({freq:ev.freq,time:when,dur:ev.dur||0.25,vel:0.9}); Audio.Organ.trig({    freq: ev.freq, time: when, dur: 0.20, vel: 0.9 }); Audio.Supersaw.trig({ freq: ev.freq, time: when, dur: Math.max(0.5, ev.dur||0.25), vel: 0.9 }); }
     else if(ev.type==='bass303'){ Audio.B303.trig({freq:ev.freq,time:when,dur:ev.dur||0.25,slide:window.__b303Slide,reso:window.__b303Reso,accent:window.__b303Accent}); }
     else if(ev.type==='wt'){ Audio.WT.trig({freq:ev.freq,time:when}); }
-    else if(ev.type==='drums'){ if(ev.label==='Kick') Audio.kick(when,1.0); else if(ev.label==='Snare') Audio.snare(when,0.85); else if(ev.label==='Hat') Audio.hat(when,0.6); else if(ev.label==='Clap') Audio.clap(when,0.65); }
+    else if(ev.type==='drums'){ Audio.Drum.play(ev.label, when, 0.9); }
     else if(ev.type==='pad'){ UI && UI.sampler && UI.sampler.play(ev.index, when, 0.9); }
   }
 
@@ -1921,6 +2126,7 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 
 </body>
 </html>
+
 
 
 
