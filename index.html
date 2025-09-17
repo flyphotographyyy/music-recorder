@@ -630,7 +630,7 @@ const Audio = (()=>{
     src.connect(hp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.08);
     src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}}
   }
-  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ snare(time+i*0.01, vel*0.55); } }
+  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ Audio.Drum.play("Snare", time+i*0.01, vel*0.55); } }
   // --- 909/808 Drum Selector (router) ---
   const Drum = (() => {
     const cents = (c)=> Math.pow(2, (c||0)/1200);
@@ -1858,19 +1858,19 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
       if (grid[0]?.[col]) {
         // ако имаш Drum.play() – предпочети него:
         if (window.Drum?.play) Drum.play('Kick', t, 1.0);
-        else Audio.kick(t, 1.0);               // fallback към твоите функции
+        else Audio.Drum.play("Kick", t, 1.0);               // fallback към твоите функции
       }
       if (grid[1]?.[col]) {
         if (window.Drum?.play) Drum.play('Snare', t, 0.9);
-        else Audio.snare(t, 0.85);
+        else Audio.Drum.play("Snare", t, 0.85);
       }
       if (grid[2]?.[col]) {
         if (window.Drum?.play) Drum.play('Hat', t, 0.8);
-        else Audio.hat(t, 0.6);
+        else Audio.Drum.play("Hat", t, 0.6);
       }
       if (grid[3]?.[col]) {
         if (window.Drum?.play) Drum.play('Clap', t, 0.9);
-        else Audio.clap(t, 0.65);
+        else Audio.Drum.play("Clap", t, 0.65);
       }
     }
 
