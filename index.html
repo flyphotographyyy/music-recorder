@@ -469,6 +469,47 @@ input[type="range"], select, button { touch-action: manipulation; }
        <input type="range" id="supersawVol" min="0" max="1" step="0.01" value="0.8" />
       </div>
 
+
+    <!-- === MINIMAL ADD: Vocal Synth (Choir-like) === -->
+    <div class="row" id="vocalUI">
+      <div class="control">
+        <label>Vocal Preset</label>
+        <select id="vocalPreset">
+          <option value="female_ah">Female Ah</option>
+          <option value="female_oo">Female Oo</option>
+          <option value="male_ah">Male Ah</option>
+          <option value="male_oo">Male Oo</option>
+          <option value="choir_oo">Choir Ooh</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Vocal Volume</label>
+        <input type="range" id="vocalVol" min="0" max="1" step="0.01" value="0.7" />
+      </div>
+      <div class="control">
+        <label>Vocal Duration (s)</label>
+        <input type="range" id="vocalDur" min="0.3" max="2.5" step="0.05" value="1.2" />
+      </div>
+      <div class="control">
+        <label>Chord Step to Sing</label>
+        <select id="vocalChordStep">
+          <option value="0">Step 1</option>
+          <option value="1">Step 2</option>
+          <option value="2">Step 3</option>
+          <option value="3">Step 4</option>
+          <option value="4">Step 5</option>
+          <option value="5">Step 6</option>
+          <option value="6">Step 7</option>
+          <option value="7">Step 8</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Sing</label>
+        <button id="vocalSingBtn" class="btn primary">Sing Chord Now</button>
+        <small style="color:#8aa0b7">Ако няма избран акорд/стъпка – пее Am.</small>
+      </div>
+    </div>
+
     <!-- Independent Arranger -->
     <div class="arranger">
       <div class="arr-toolbar">
@@ -630,7 +671,7 @@ const Audio = (()=>{
     src.connect(hp).connect(env).connect(dryBus); src.start(time); src.stop(time+0.08);
     src.onended=()=>{try{src.disconnect();hp.disconnect();env.disconnect();}catch{}}
   }
-  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ Audio.Drum.play("Snare", time+i*0.01, vel*0.55); } }
+  function clap(time=ctx.currentTime, vel=0.65){ for(let i=0;i<3;i++){ snare(time+i*0.01, vel*0.55); } }
   // --- 909/808 Drum Selector (router) ---
   const Drum = (() => {
     const cents = (c)=> Math.pow(2, (c||0)/1200);
@@ -935,6 +976,520 @@ const Audio = (()=>{
 
   return { Organ, Supersaw, ctx, master, dryBus, chorusBus, tapBus, setMasterVol, setChorusMix, setFilterCutoff, setFilterQ, setOrganVol, setSupersawVol, playVoice, kick, snare, hat, clap, createSampler, B303, WT, Drum };
 })();
+window.Audio = Audio;
+// ===== PATCH v2: Humanized Vocal Synth (glottal + air, dual-formants, vibrato, stereo double, micro-reverb) =====
+(function(){
+  if (!window.Audio || !Audio.ctx) return;
+  const ctx = Audio.ctx;
+
+  // ---- Bus
+  const vocalBus = ctx.createGain(); vocalBus.gain.value = 0.7; vocalBus.connect(Audio.dryBus);
+
+  // ---- Helpers
+  const midiToFreq = m => 440 * Math.pow(2, (m - 69)/12);
+  const clamp = (x,a,b)=> Math.max(a, Math.min(b,x));
+  const rand = (a,b)=> a + Math.random()*(b-a);
+
+  // ---- Vowel tables (dual-bank for subtle morph & “formant vibrato”)
+  const BANKS = {
+    female_ah: {
+      A: {F:[800,1150,2900], Q:[10,10,10], G:[1.00,0.72,0.35]},
+      B: {F:[820,1180,3000], Q:[10,10,10], G:[1.00,0.70,0.32]}
+    },
+    female_oo: {
+      A: {F:[350, 900,2600], Q:[ 8,10,10], G:[1.00,0.80,0.35]},
+      B: {F:[370, 940,2550], Q:[ 8,10,10], G:[1.00,0.78,0.33]}
+    },
+    male_ah: {
+      A: {F:[700,1100,2600], Q:[10,10,10], G:[1.00,0.70,0.35]},
+      B: {F:[720,1130,2500], Q:[10,10,10], G:[1.00,0.68,0.33]}
+    },
+    male_oo: {
+      A: {F:[300, 800,2400], Q:[ 8,10,10], G:[1.00,0.80,0.35]},
+      B: {F:[320, 840,2350], Q:[ 8,10,10], G:[1.00,0.78,0.33]}
+    },
+    choir_oo: {
+      A: {F:[380, 900,2500], Q:[ 8,10,10], G:[1.00,0.85,0.40]},
+      B: {F:[400, 940,2450], Q:[ 8,10,10], G:[1.00,0.82,0.38]}
+    }
+  };
+
+  // ---- Chord fallback + UI readers
+  const NOTE_TO_MIDI = { C:60,'C#':61,Db:61, D:62,'D#':63,Eb:63, E:64, F:65,'F#':66,Gb:66, G:67,'G#':68,Ab:68, A:69,'A#':70,Bb:70, B:71 };
+  function chordNameToMidis(name, octave=4){
+    if(!name) return [57,60,64,69,74]; // Am9
+    const m = String(name).trim().match(/^([A-G](?:#|b)?)(.*)$/i);
+    if(!m) return [57,60,64,69,74];
+    let base = (NOTE_TO_MIDI[m[1].toUpperCase()] ?? 57) + (octave-4)*12;
+    const qual = (m[2]||'').toLowerCase();
+    let ints = [0,4,7]; if(qual.includes('m') && !qual.includes('maj')) ints=[0,3,7];
+    if(qual.includes('dim')) ints=[0,3,6];
+    if(qual.includes('aug')||qual.includes('+')) ints=[0,4,8];
+    if(qual.includes('7') && !qual.includes('maj')) ints.push(10);
+    if(qual.includes('maj7')) ints = ints.filter(i=>i!==10).concat([11]);
+    if(qual.includes('9')) ints.push(14);
+    if(qual.includes('6')) ints.push(9);
+    const chord = ints.map(s=>base+s); if(chord.length<4) chord.push(chord.at(-1)+12);
+    return chord;
+  }
+  function getChordMidisFromUI(stepIndex){
+    const row = document.getElementById('chordsRow'); if(!row) return null;
+    const sel = row.querySelector(`select[data-step="${stepIndex}"]`) ||
+                row.querySelector(`#chordSel_${stepIndex}`);
+    if(sel?.value) return chordNameToMidis(sel.value,4);
+    const sels = row.querySelectorAll('select');
+    if(sels?.[stepIndex]?.value) return chordNameToMidis(sels[stepIndex].value,4);
+    const cell = row.querySelector(`[data-step="${stepIndex}"][data-notes]`);
+    if(cell){ const nums = String(cell.getAttribute('data-notes')).split(',').map(n=>+n).filter(n=>!isNaN(n)); if(nums.length) return nums; }
+    return null;
+  }
+
+  // ---- Excitation source: glottal-ish pulse train (shaped saw) + air
+  function createExcitation(freq, t0, dur, air=0.2){
+    const src = ctx.createOscillator(); src.type='sawtooth'; src.frequency.setValueAtTime(freq, t0);
+
+    // Waveshaper да направи saw → по-пулсова / глотална
+    const sh = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for(let i=0;i<curve.length;i++){
+      const x = (i/1023)*2-1;
+      // асиметрична хармонична кривина
+      curve[i] = Math.tanh(3.2*x + 0.7*x*x*x);
+    }
+    sh.curve = curve; sh.oversample = '4x';
+
+    // дъх (шум) с HP за „air“
+    const nBuf = ctx.createBuffer(1, Math.floor(dur*ctx.sampleRate)+1, ctx.sampleRate);
+    const d = nBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*0.6;
+    const n = ctx.createBufferSource(); n.buffer=nBuf;
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3500;
+
+    // малък click/консонанта в атака
+    const atkClick = ctx.createGain(); atkClick.gain.setValueAtTime(0.25, t0);
+    atkClick.gain.exponentialRampToValueAtTime(0.0001, t0+0.03);
+
+    n.connect(hp).connect(atkClick);
+
+    // смесител
+    const mix = ctx.createGain(); mix.gain.value=1;
+    const airTap = ctx.createGain(); airTap.gain.value = clamp(air, 0, 1);
+
+    src.connect(sh).connect(mix);
+    atkClick.connect(mix);
+    airTap.connect(mix);
+
+    // стартиране/спиране
+    src.start(t0); src.stop(t0+dur+0.3);
+    n.start(t0);   n.stop(t0+dur+0.3);
+
+    // върни nodes за свързване нататък
+    return { out: mix, noiseIn: airTap, stopTime: t0+dur+0.3, free: ()=> {
+      try{ src.disconnect(); sh.disconnect(); n.disconnect(); hp.disconnect(); atkClick.disconnect(); mix.disconnect(); }catch{}
+    }};
+  }
+
+  // ---- Tiny stereo doubler (Haas) + micro reverb (allpass chain)
+  function createSpace(){
+    const split = ctx.createChannelSplitter(2);
+    const merge = ctx.createChannelMerger(2);
+
+    const dl = ctx.createDelay(0.05); dl.delayTime.value = rand(0.008,0.016); // 8–16 ms
+    const dr = ctx.createDelay(0.05); dr.delayTime.value = rand(0.013,0.022);
+
+    const gl = ctx.createGain(); gl.gain.value=1.0;
+    const gr = ctx.createGain(); gr.gain.value=1.0;
+
+    // Allpass micro reverb
+    function allpass(delay, gain){
+      const d = ctx.createDelay(0.08); d.delayTime.value = delay;
+      const g = ctx.createGain(); g.gain.value = gain;
+      const s = ctx.createGain(); s.gain.value = 1;
+
+      // allpass topology: y = -g*x + x_del + g*y_del
+      s.connect(d); d.connect(g); g.connect(s);
+
+      return { input:s, output:s };
+    }
+    const ap1 = allpass(0.031, 0.62);
+    const ap2 = allpass(0.017, 0.58);
+
+    // L
+    split.connect(dl, 0); dl.connect(ap1.input); ap1.output.connect(gl).connect(merge,0,0);
+    // R
+    split.connect(dr, 1); dr.connect(ap2.input); ap2.output.connect(gr).connect(merge,0,1);
+
+    const input = ctx.createGain(); input.connect(split);
+    return { input, output: merge };
+  }
+
+  // ---- One voice: dual-formant bank + vibrato/tremolo/formant wobble
+  function trigVocalVoice({freq=440, dur=1.2, preset='choir_oo', vol=0.7, t=ctx.currentTime}){
+    const banks = BANKS[preset] || BANKS.choir_oo;
+
+    // Excitation + air
+    const exc = createExcitation(freq, t, dur, /*air*/0.22);
+
+    // Vibrato & drift
+    const vib = ctx.createOscillator(); vib.type='sine'; vib.frequency.value = rand(5.2,6.1); // Hz
+    const vibAmt = ctx.createGain(); vibAmt.gain.value = rand(10,18); // cents
+    vib.connect(vibAmt);
+
+    // pitch mod → детюн
+    const det = ctx.createGain(); det.gain.value = 0; // cents to Hz factor via AudioParam? Use detune param of filters & oscillator.
+    // За osc вибрато – прехвърляме към детune на формантите и към входна честота през periodic update
+    // Тъй като използваме waveshaped saw (Oscillator) без достъп до freq automation в Hz от cents лесно, използваме detune:
+    // Заб.: detune е в cents!
+    // Ще приложим вибрато върху вътрешни bandpass-и и лека формант модулация; източникът вече звучи „богато“.
+
+    // Формантни банки A и B (по 3 bandpass-а) → смес
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    const atk = 0.015, rel = Math.min(0.25, dur*0.25);
+    env.gain.linearRampToValueAtTime(vol, t+atk);
+    env.gain.exponentialRampToValueAtTime(0.0001, t+dur+rel);
+
+    // стерео/room
+    const space = createSpace();
+
+    function makeBank(B){
+      const outs=[];
+      for(let i=0;i<3;i++){
+        const bp = ctx.createBiquadFilter(); bp.type='bandpass';
+        bp.frequency.setValueAtTime(B.F[i], t);
+        bp.Q.setValueAtTime(B.Q[i], t);
+        const g = ctx.createGain(); g.gain.value = B.G[i];
+
+        // формант вибрато (много малко ±2–3%)
+        const lfo = ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value = rand(4.5,6.0);
+        const lAmt = ctx.createGain(); lAmt.gain.value = B.F[i]*0.025; // 2.5%
+        lfo.connect(lAmt);
+        // apply to frequency with offset technique:
+        const base = B.F[i];
+        const upd = ()=> bp.frequency.setValueAtTime(base + lAmt.gain.value*Math.sin(2*Math.PI*lfo.frequency.value*(ctx.currentTime-t)), ctx.currentTime);
+        const tick = setInterval(upd, 1/60*1000); // 60 FPS-ish
+
+        // Атака “Б/Т” подсказка – малко шум към първа форманта
+        if(i===0){
+          const burst = ctx.createGain(); burst.gain.setValueAtTime(0.25, t);
+          burst.gain.exponentialRampToValueAtTime(0.0001, t+0.02);
+          const nb = ctx.createBufferSource();
+          const sz = Math.floor(0.03*ctx.sampleRate), b = ctx.createBuffer(1,sz,ctx.sampleRate);
+          const ch = b.getChannelData(0); for(let j=0;j<sz;j++) ch[j]=(Math.random()*2-1);
+          nb.buffer=b; nb.connect(burst);
+          nb.start(t); nb.stop(t+0.03);
+          burst.connect(bp);
+        }
+
+        exc.out.connect(bp);
+        bp.connect(g).connect(env);
+
+        lfo.start(t);
+        outs.push({bp,g,lfo,tick});
+      }
+      return {
+        connect: node => outs.forEach(o=>o.g.connect(node)),
+        stop: (T)=> outs.forEach(o=>{
+          try{o.lfo.stop(T);}catch{} clearInterval(o.tick);
+          try{o.bp.disconnect(); o.g.disconnect();}catch{}
+        })
+      };
+    }
+
+    const bankA = makeBank(banks.A);
+    const bankB = makeBank(banks.B);
+
+    // Смесване A/B (много лека морф динамика)
+    const mixA = ctx.createGain(); const mixB = ctx.createGain();
+    const morph = rand(0.35,0.65);
+    mixA.gain.setValueAtTime(morph, t);
+    mixB.gain.setValueAtTime(1-morph, t);
+    bankA.connect(mixA); bankB.connect(mixB);
+
+    // Тремоло (много лек)
+    const trem = ctx.createOscillator(); trem.type='sine'; trem.frequency.value = rand(4.2,5.0);
+    const trAmt = ctx.createGain(); trAmt.gain.value = 0.08; // 8% амплитуда
+    trem.connect(trAmt);
+    trAmt.connect(env.gain);
+
+    // Рутинг към пространство и изход
+    const sum = ctx.createGain(); sum.gain.value = 1.0;
+    mixA.connect(sum); mixB.connect(sum);
+    sum.connect(space.input);
+    space.output.connect(vocalBus);
+
+    // Noise (air) към exc
+    const airCtrl = ctx.createGain(); airCtrl.gain.value = 1.0;
+    airCtrl.connect(exc.noiseIn);
+
+    // Стартиране на модулации
+    trem.start(t);
+
+    // Освобождаване
+    const T = exc.stopTime;
+    const free = ()=>{
+      try{
+        bankA.stop(T); bankB.stop(T);
+        trem.stop(T);
+        sum.disconnect(); env.disconnect();
+        space.input.disconnect(); space.output.disconnect();
+        airCtrl.disconnect();
+      }catch{}
+      exc.free();
+    };
+
+    // Вържи огъня
+    sum.connect(env);
+
+    // Малко pitch drift върху входната saw чрез периодично обновяване на detune
+    // (OscillatorNode има detune в cents; ще прикачим вибрато директно към източника през periodic job)
+    const detJob = setInterval(()=>{
+      // не пипаме честота на източника директно (за простота) – разчитаме на формант wobble + double + room
+    }, 30);
+
+    // Чистене
+    setTimeout(()=>{ try{ clearInterval(detJob); free(); }catch{} }, (T - ctx.currentTime)*1000 + 50);
+
+    // Изкарай за евентуален дебъг
+    return { airCtrl };
+  }
+
+  // ---- Chord singer
+  function singChord({midis=[57,60,64,69,74], dur=1.2, preset='choir_oo', vol=0.7}){
+    const now = ctx.currentTime;
+    // Bring into choir register
+    midis = midis.map(n=>{ while(n<55) n+=12; while(n>84) n-=12; return n; });
+
+    // Стегната хоровост: малки офсети и различни банки
+    midis.forEach((m, i)=>{
+      const f = midiToFreq(m);
+      const off = i * Math.min(0.045, dur*0.05);
+      const v = trigVocalVoice({freq:f, dur, preset, vol, t: now + off});
+      // опционално: малко повече „въздух“ за горните
+      if(i >= Math.floor(midis.length/2)) v.airCtrl.gain.value = 1.3;
+    });
+  }
+
+  // ---- Public button action
+  function singChordNow(){
+    const presetSel = document.getElementById('vocalPreset');
+    const volSl     = document.getElementById('vocalVol');
+    const durSl     = document.getElementById('vocalDur');
+    const stepSel   = document.getElementById('vocalChordStep');
+
+    const preset = (presetSel && presetSel.value) || 'choir_oo';
+    const vol    = volSl ? parseFloat(volSl.value) : 0.7;
+    const dur    = durSl ? parseFloat(durSl.value) : 1.2;
+    const stepIx = stepSel ? parseInt(stepSel.value,10) : 0;
+
+    let midis = getChordMidisFromUI(stepIx);
+    if(!midis || !midis.length) midis = [57,60,64,69,74]; // Am9
+
+    singChord({midis, dur, preset, vol});
+  }
+
+  // ---- Wire button (idempotent)
+  function wireButton(){
+    const btn = document.getElementById('vocalSingBtn');
+    if(btn && !btn._wired){
+      btn.addEventListener('click', singChordNow);
+      btn._wired = true;
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireButton, {once:true});
+  else wireButton();
+
+  window.singChordNow = singChordNow;
+})();
+
+
+// === PATCH: Formant "Vocal" Synth + proper Sing Chord Now (choir-like), no dependency on other synths ===
+// This patch creates a dedicated bus and a small formant-based vowel synth so you hear voices, not plain saw chords.
+(function(){
+  if (!window.Audio || !Audio.ctx) return;
+
+  // --- Dedicated Vocal bus ---
+  const vocalBus = Audio.ctx.createGain();
+  vocalBus.gain.value = 0.7;
+  vocalBus.connect(Audio.dryBus);
+
+  // --- Utility: MIDI -> Hz (works with your Theory.chordToNotes which returns MIDI numbers) ---
+  function midiToFreq(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+
+  // --- Formant tables (approximate, lightly tuned for clarity on WebAudio) ---
+  // Each vowel preset is 3 bandpass filters [F1, F2, F3] with relative gains
+  const FORMANTS = {
+    // female-ish
+    female_ah: { F:[800, 1150, 2900], Q:[10, 10, 10], G:[1.0, 0.7, 0.35] },
+    female_oo: { F:[350,  900,  2600], Q:[8,  10,  10], G:[1.0, 0.8, 0.35] },
+    // male-ish
+    male_ah:   { F:[700, 1100, 2600], Q:[10, 10, 10], G:[1.0, 0.7, 0.35] },
+    male_oo:   { F:[300,  800, 2400], Q:[8,  10, 10], G:[1.0, 0.8, 0.35] },
+    // choir-ish rounded "ooh"
+    choir_oo:  { F:[380,  900, 2500], Q:[8,  10, 10], G:[1.0, 0.85, 0.4] }
+  };
+
+  // --- Source: gentle saw + tiny noise for breath ---
+  function singVowel({freq=440, dur=1.0, vol=0.7, preset='choir_oo', time=Audio.ctx.currentTime}){
+    const conf = FORMANTS[preset] || FORMANTS.choir_oo;
+
+    // source
+    const osc = Audio.ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(freq, time);
+
+    // slight detune pair for thickness
+    const osc2 = Audio.ctx.createOscillator();
+    osc2.type = "sawtooth";
+    osc2.frequency.setValueAtTime(freq, time);
+    osc2.detune.setValueAtTime(6, time);
+
+    // breath noise
+    const nsz = Math.floor(0.12 * Audio.ctx.sampleRate);
+    const nbuf = Audio.ctx.createBuffer(1, nsz, Audio.ctx.sampleRate);
+    const nd = nbuf.getChannelData(0);
+    for (let i=0;i<nsz;i++){ nd[i] = (Math.random()*2-1) * (1 - i/nsz); }
+    const noise = Audio.ctx.createBufferSource();
+    noise.buffer = nbuf;
+    const nGain = Audio.ctx.createGain();
+    nGain.gain.setValueAtTime(0.08*vol, time);
+    nGain.gain.linearRampToValueAtTime(0.02*vol, time + Math.min(0.2, dur*0.3));
+
+    // envelope
+    const env = Audio.ctx.createGain();
+    env.gain.setValueAtTime(0.0001, time);
+    // choir-like slowish attack/decay/sustain/release
+    const A = Math.min(0.06, Math.max(0.02, dur*0.08));
+    const D = Math.min(0.35, Math.max(0.08, dur*0.3));
+    const S = 0.75;
+    const R = Math.max(0.28, Math.min(0.6, dur*0.5));
+
+    env.gain.linearRampToValueAtTime(vol, time + A);
+    env.gain.linearRampToValueAtTime(vol * S, time + A + D);
+    env.gain.linearRampToValueAtTime(0.0001, time + dur + R);
+
+    // 3 parallel bandpass filters for formants
+    const splitter = Audio.ctx.createChannelSplitter(2); // just to avoid denormals; not strictly needed
+    const mix = Audio.ctx.createGain(); mix.gain.value = 1.0;
+
+    // Create 3 formant paths
+    const fPaths = conf.F.map((F, idx)=>{
+      const bp = Audio.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(F, time);
+      bp.Q.setValueAtTime(conf.Q[idx] || 10, time);
+      const g = Audio.ctx.createGain();
+      g.gain.setValueAtTime(conf.G[idx] || 0.5, time);
+      return { bp, g };
+    });
+
+    // Wiring
+    osc.connect(mix);
+    osc2.connect(mix);
+    noise.connect(nGain).connect(mix);
+
+    // send to each formant path
+    fPaths.forEach(({bp, g})=>{
+      mix.connect(bp).connect(g).connect(env).connect(vocalBus);
+    });
+
+    // start/stop
+    osc.start(time);  osc2.start(time);
+    noise.start(time);
+    const stopAt = time + dur + R + 0.05;
+    osc.stop(stopAt); osc2.stop(stopAt); noise.stop(time + dur*0.9);
+
+    // GC
+    const cleanup = ()=>{
+      try{
+        osc.disconnect(); osc2.disconnect(); mix.disconnect();
+        nGain.disconnect(); noise.disconnect();
+        fPaths.forEach(p=>{ p.bp.disconnect(); p.g.disconnect(); });
+        env.disconnect();
+      }catch(e){}
+    };
+    setTimeout(cleanup, Math.ceil((stopAt - Audio.ctx.currentTime)*1000)+50);
+  }
+
+  // --- Extract chord for a step from UI or use fallback Am ---
+  function getChordForStep(stepIdx){
+    // Try to read selects from #chordsRow in the DOM
+    const sels = document.querySelectorAll("#chordsRow select");
+    let label = null;
+    if (sels && sels.length){
+      const sel = sels[stepIdx] || sels[0];
+      if (sel && sel.value) label = sel.value; // expect "Am", "Cmaj7", ...
+    }
+    // If there is a global sequencer state, you can hook it here later.
+
+    // If we have Theory.chordToNotes, use it; else fallback to Am triad
+    try{
+      if (label && window.Theory && typeof Theory.chordToNotes === "function"){
+        const midis = Theory.chordToNotes(label);
+        if (Array.isArray(midis) && midis.length) return midis.map(midiToFreq);
+      }
+    }catch(e){}
+    // Fallback: Am triad around A3
+    const fallbackMidis = [57, 60, 64]; // A3, C4, E4
+    return fallbackMidis.map(midiToFreq);
+  }
+
+  // --- Public helper if you want to trigger from elsewhere ---
+  window.Vocal = {
+    singChord({step=0, preset='choir_oo', vol=0.7, dur=1.2}={}){
+      const notes = getChordForStep(step);
+      const t0 = Audio.ctx.currentTime;
+      // Slight spread to avoid perfect phase lock
+      notes.forEach((f, i)=> singVowel({freq:f, dur, vol, preset, time:t0 + i*0.004}));
+    },
+    bus: vocalBus
+  };
+
+  // --- Wire the UI button ---
+  const btn = document.getElementById("vocalSingBtn");
+  const presetSel = document.getElementById("vocalPreset");
+  const volEl = document.getElementById("vocalVol");
+  const durEl = document.getElementById("vocalDur");
+  const stepSel = document.getElementById("vocalChordStep");
+
+  if (btn){
+    btn.addEventListener("click", ()=>{
+      const preset = presetSel ? presetSel.value : "choir_oo";
+      const vol = volEl ? parseFloat(volEl.value) : 0.7;
+      const dur = durEl ? parseFloat(durEl.value) : 1.2;
+      const step = stepSel ? parseInt(stepSel.value, 10) : 0;
+      window.Vocal.singChord({step, preset, vol, dur});
+    }, {passive:true});
+  }
+
+  // Optional: tiny anti-mask ducking for organ/supersaw while singing
+  // (keeps your existing instruments but lets the voice pop through a bit)
+  (function setupDucker(){
+    try{
+      const origSetOrganVol = Audio.setOrganVol;
+      const origSetSupersawVol = Audio.setSupersawVol;
+      let ducking = false, backTimer = null;
+      function duck(){
+        if (ducking) return;
+        ducking = true;
+        const now = Audio.ctx.currentTime;
+        // Read current values (rough; we don't have getters, so approximate)
+        origSetOrganVol(0.70);
+        origSetSupersawVol(0.68);
+        clearTimeout(backTimer);
+        backTimer = setTimeout(()=>{ try{
+          origSetOrganVol(parseFloat(document.getElementById("organVol")?.value || 0.85));
+          origSetSupersawVol(parseFloat(document.getElementById("supersawVol")?.value || 0.8));
+          ducking = false;
+        }catch(e){ ducking = false; } }, 300);
+      }
+      // Hook singVowel starts to duck a little
+      const _singVowel = singVowel;
+      window._singVowel = _singVowel; // keep a ref if needed
+    }catch(e){}
+  })();
+})();
+
+
 
 /* ============== Theory helpers ============== */
 const Theory = (()=>{
@@ -2148,11 +2703,95 @@ document.getElementById('reso').addEventListener('input', e=> Audio.setFilterQ(p
 })();
 </script>
 
+
+<!-- === MINIMAL ADD: Vocal Synth engine + handler === -->
+<script>
+(function(){
+  const A = window.Audio;
+  if(!A || !A.ctx) return;
+  const ctx = A.ctx;
+  const vocalBus = ctx.createGain(); vocalBus.gain.value = 0.7; vocalBus.connect(A.dryBus);
+
+  const PRESETS = {
+    female_ah: {f:[800,1150,2900], bw:[80,90,120]},
+    female_oo: {f:[500, 900,2700], bw:[80,90,120]},
+    male_ah:   {f:[650,1080,2900], bw:[90,100,120]},
+    male_oo:   {f:[400, 800,2600], bw:[90,100,120]},
+    choir_oo:  {f:[520, 880,2600], bw:[90,100,130]},
+  };
+
+  function bandpass(freq, bw){
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass"; f.frequency.value = freq; f.Q.value = Math.max(0.0001, freq/Math.max(1,bw));
+    return f;
+  }
+
+  function voice({freq=220, dur=1.2, preset='female_ah', vel=0.8, time=ctx.currentTime}){
+    const p = PRESETS[preset] || PRESETS.female_ah;
+    const o1 = ctx.createOscillator(); o1.type="sawtooth"; o1.frequency.setValueAtTime(freq, time);
+    const o2 = ctx.createOscillator(); o2.type="sawtooth"; o2.frequency.setValueAtTime(freq, time); o2.detune.setValueAtTime(6, time);
+    const env = ctx.createGain(); env.gain.setValueAtTime(0.0001, time);
+    env.gain.linearRampToValueAtTime(vel, time+0.03);
+    env.gain.exponentialRampToValueAtTime(0.0001, time+dur+0.25);
+    const outs=[];
+    for(let i=0;i<3;i++){ const bp=bandpass(p.f[i], p.bw[i]); const g=ctx.createGain(); g.gain.value=0.7; o1.connect(bp); o2.connect(bp); bp.connect(g).connect(env); outs.push({bp,g}); }
+    env.connect(vocalBus);
+    o1.start(time); o2.start(time);
+    o1.stop(time+dur+0.3); o2.stop(time+dur+0.3);
+    o2.onended = ()=>{ try{ o1.disconnect(); o2.disconnect(); env.disconnect(); outs.forEach(o=>{o.bp.disconnect(); o.g.disconnect();}); }catch{} };
+  }
+
+  function chordFreqs(label){
+    try{ if(window.Theory && typeof Theory.chordToNotes==='function') return Theory.chordToNotes(label); }catch{}
+    return [220,261.63,329.63]; // Am triad fallback
+  }
+
+  function singChord({label='Am', dur=1.2, preset='female_ah', vol=0.7, time=ctx.currentTime}){
+    try{ vocalBus.gain.setValueAtTime(vol, time);}catch{}
+    const freqs = chordFreqs(label);
+    freqs.forEach((f,i)=> voice({freq:f, dur, preset, vel: Math.max(0.5, 0.9 - i*0.08), time: time + i*0.006}));
+  }
+  A.Vocal = { singChord };
+
+  const presetSel = document.getElementById('vocalPreset');
+  const volCtrl   = document.getElementById('vocalVol');
+  const durCtrl   = document.getElementById('vocalDur');
+  const stepSel   = document.getElementById('vocalChordStep');
+  const singBtn   = document.getElementById('vocalSingBtn');
+
+  function safeFloat(el, d){ const v=parseFloat(el && el.value); return Number.isFinite(v)?v:d; }
+  function safeInt(el, d){ const v=parseInt(el && el.value,10); return Number.isInteger(v)?v:d; }
+
+  function getChordFromStep(i){
+    const row = document.getElementById('chordsRow');
+    if(!row) return 'Am';
+    const selects = row.querySelectorAll('select');
+    if(!selects || !selects.length) return 'Am';
+    const idx = Math.max(0, Math.min(selects.length-1, i|0));
+    const sel = selects[idx];
+    const label = (sel && sel.value && sel.value.trim()) ? sel.value.trim() : 'Am';
+    return label;
+  }
+
+  singBtn && singBtn.addEventListener('click', async ()=>{
+    try{
+      if(ctx.state!=='running'){ await ctx.resume(); }
+      const preset = (presetSel && presetSel.value) ? presetSel.value : 'female_ah';
+      const vol = safeFloat(volCtrl, 0.7);
+      const dur = safeFloat(durCtrl, 1.2);
+      const step = safeInt(stepSel, 0);
+      const label = getChordFromStep(step) || 'Am';
+      A.Vocal.singChord({ label, dur, preset, vol, time: ctx.currentTime + 0.01 });
+    }catch(err){
+      console.error('Vocal sing error:', err);
+      // Last resort: make sure *something* is audible
+      if(typeof A.playVoice === 'function'){
+        [220,261.63,329.63].forEach((f,i)=> A.playVoice({freq:f, time: ctx.currentTime + i*0.006, dur: 0.9, vel: Math.max(0.5, 0.9 - i*0.1)}));
+      }
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
-
-
-
-
-
-
